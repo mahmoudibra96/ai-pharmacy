@@ -1,0 +1,85 @@
+{% extends 'pharmacy/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h2>Stock Management</h2>
+        </div>
+        <div class="col-md-6 text-end">
+            <a href="{% url 'pharmacy:stock_scan' %}" class="btn btn-primary">
+                <i class="fas fa-barcode"></i> Scan Barcode
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Quick Actions -->
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="{% url 'pharmacy:medicine_add' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-plus"></i> Add New Medicine
+                        </a>
+                        <a href="{% url 'pharmacy:stock_scan' %}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-barcode"></i> Update Stock
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stock Alerts -->
+        <div class="col-md-8 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Stock Alerts</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Medicine</th>
+                                    <th>Current Stock</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for medicine in low_stock %}
+                                <tr>
+                                    <td>{{ medicine.name }}</td>
+                                    <td>{{ medicine.stock }}</td>
+                                    <td>
+                                        {% if medicine.stock == 0 %}
+                                            <span class="badge bg-danger">Out of Stock</span>
+                                        {% else %}
+                                            <span class="badge bg-warning">Low Stock</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'pharmacy:update_stock' medicine.barcode_number %}" 
+                                           class="btn btn-sm btn-primary">
+                                            Update Stock
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center">No stock alerts</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,103 @@
+{% extends 'pharmacy/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Customer Analytics</h2>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Customers</h5>
+                    <h2 class="card-text">{{ total_customers }}</h2>
+                    <p class="mb-0">{{ active_customers }} active</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Loyalty Points</h5>
+                    <h2 class="card-text">{{ loyalty_stats.total_points|default:0 }}</h2>
+                    <p class="mb-0">Avg: {{ loyalty_stats.avg_points|default:0|floatformat:1 }} per customer</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Customers -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Top Customers</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Customer</th>
+                            <th>Total Purchases</th>
+                            <th>Total Spent</th>
+                            <th>Average Purchase</th>
+                            <th>Points</th>
+                            <th>Last Purchase</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for customer in top_customers %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'pharmacy:customer_detail' customer.id %}">
+                                    {{ customer.name }}
+                                </a>
+                            </td>
+                            <td>{{ customer.total_purchases }}</td>
+                            <td>${{ customer.total_spent|floatformat:2 }}</td>
+                            <td>${{ customer.avg_purchase|floatformat:2 }}</td>
+                            <td>{{ customer.points }}</td>
+                            <td>{{ customer.last_purchase|date:"F d, Y" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">No customer data available</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monthly New Customers -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">New Customers by Month ({{ current_year }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>New Customers</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in monthly_new_customers %}
+                        <tr>
+                            <td>{{ stat.month|date:"F" }}</td>
+                            <td>{{ stat.count }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-center">No data available</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

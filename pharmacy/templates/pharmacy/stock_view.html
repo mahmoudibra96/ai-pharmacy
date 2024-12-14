@@ -1,0 +1,103 @@
+{% extends 'pharmacy/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Stock Overview</h2>
+    
+    <!-- Stock Summary Cards -->
+    <div class="row mb-4">
+        {% for item in stock_data %}
+        <div class="col-md-4 mb-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h5 class="card-title mb-3">{{ item.medicine.name }}</h5>
+                        <span class="badge {% if item.total_stock > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                            Total: {{ item.total_stock }}
+                        </span>
+                    </div>
+                    
+                    <!-- Warning Indicators -->
+                    {% if item.expired_stock > 0 %}
+                    <div class="alert alert-danger py-1 mb-2">
+                        <small>Expired Stock: {{ item.expired_stock }}</small>
+                    </div>
+                    {% endif %}
+                    
+                    {% if item.near_expiry_stock > 0 %}
+                    <div class="alert alert-warning py-1 mb-2">
+                        <small>Near Expiry: {{ item.near_expiry_stock }}</small>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Stock Details Table -->
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Expiry Date</th>
+                                    <th>Quantity</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in item.stock_entries.all %}
+                                <tr>
+                                    <td>{{ entry.expiration_date|date:"Y-m-d" }}</td>
+                                    <td>{{ entry.quantity }}</td>
+                                    <td>
+                                        {% if entry.expiration_date < today %}
+                                            <span class="badge bg-danger">Expired</span>
+                                        {% elif entry.expiration_date|timeuntil:today < '30 days' %}
+                                            <span class="badge bg-warning">Near Expiry</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Good</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center">No stock entries</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="card-footer bg-transparent">
+                    <a href="{% url 'pharmacy:medicine_detail' item.medicine.pk %}" class="btn btn-sm btn-outline-primary">
+                        View Details
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                No stock entries found.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+    .table-responsive {
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .alert {
+        margin-bottom: 0.5rem;
+    }
+    
+    .card {
+        transition: transform 0.2s;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+    }
+</style>
+{% endblock %}

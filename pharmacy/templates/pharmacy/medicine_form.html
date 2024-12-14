@@ -1,0 +1,79 @@
+{% extends 'pharmacy/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">
+                        {% if form.instance.pk %}
+                            Edit Medicine
+                        {% else %}
+                            Add New Medicine
+                        {% endif %}
+                    </h2>
+
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <!-- Barcode field -->
+                        <div class="mb-3">
+                            <label for="id_barcode_number" class="form-label">Barcode Number</label>
+                            <input type="text" 
+                                   name="barcode_number" 
+                                   id="id_barcode_number" 
+                                   class="form-control {% if form.barcode_number.errors %}is-invalid{% endif %}"
+                                   value="{{ form.barcode_number.value|default:'' }}"
+                                   required>
+                            {% if form.barcode_number.errors %}
+                                <div class="invalid-feedback">
+                                    {{ form.barcode_number.errors|join:", " }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Other form fields -->
+                        {% for field in form %}
+                            {% if field.name != 'barcode_number' %}
+                                <div class="mb-3">
+                                    <label for="{{ field.id_for_label }}" class="form-label">
+                                        {{ field.label }}
+                                    </label>
+                                    {{ field }}
+                                    {% if field.errors %}
+                                        <div class="invalid-feedback d-block">
+                                            {{ field.errors|join:", " }}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+
+                        <div class="mt-4">
+                            <button type="submit" class="btn btn-primary">Save</button>
+                            <a href="{% url 'pharmacy:medicine_list' %}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get barcode from URL if present
+    const urlParams = new URLSearchParams(window.location.search);
+    const barcode = urlParams.get('barcode');
+    if (barcode) {
+        const barcodeInput = document.querySelector('input[name="barcode_number"]');
+        if (barcodeInput) {
+            barcodeInput.value = barcode;
+        }
+    }
+});
+</script>
+{% endblock %} 

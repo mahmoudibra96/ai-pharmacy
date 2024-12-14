@@ -1,0 +1,112 @@
+{% extends 'pharmacy/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Expiry Report</h2>
+
+    <!-- Expired Items -->
+    <div class="card mb-4">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0">Expired Items</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Medicine</th>
+                            <th>Quantity</th>
+                            <th>Expiry Date</th>
+                            <th>Days Expired</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in expired %}
+                        <tr>
+                            <td>{{ entry.medicine.name }}</td>
+                            <td>{{ entry.quantity }}</td>
+                            <td>{{ entry.expiration_date|date:"F d, Y" }}</td>
+                            <td>{{ entry.expiration_date|timesince }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center">No expired items</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expiring in 30 Days -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning">
+            <h5 class="mb-0">Expiring in 30 Days</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Medicine</th>
+                            <th>Quantity</th>
+                            <th>Expiry Date</th>
+                            <th>Days Left</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in expiring_30 %}
+                        <tr>
+                            <td>{{ entry.medicine.name }}</td>
+                            <td>{{ entry.quantity }}</td>
+                            <td>{{ entry.expiration_date|date:"F d, Y" }}</td>
+                            <td>{{ entry.expiration_date|timeuntil }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center">No items expiring in 30 days</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Expiring in 60 Days -->
+    <div class="card">
+        <div class="card-header bg-info text-white">
+            <h5 class="mb-0">Expiring in 31-60 Days</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Medicine</th>
+                            <th>Quantity</th>
+                            <th>Expiry Date</th>
+                            <th>Days Left</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in expiring_60 %}
+                        <tr>
+                            <td>{{ entry.medicine.name }}</td>
+                            <td>{{ entry.quantity }}</td>
+                            <td>{{ entry.expiration_date|date:"F d, Y" }}</td>
+                            <td>{{ entry.expiration_date|timeuntil }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center">No items expiring in 31-60 days</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

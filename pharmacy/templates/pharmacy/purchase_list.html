@@ -1,0 +1,73 @@
+{% extends 'pharmacy/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h2>Purchase Orders</h2>
+        </div>
+        <div class="col-md-6 text-end">
+            <a href="{% url 'pharmacy:purchase_add' %}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> New Purchase Order
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>PO Number</th>
+                            <th>Supplier</th>
+                            <th>Date</th>
+                            <th>Total Amount</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for purchase in purchases %}
+                        <tr>
+                            <td>PO-{{ purchase.invoice_number }}</td>
+                            <td>{{ purchase.supplier.name }}</td>
+                            <td>{{ purchase.date|date:"F d, Y" }}</td>
+                            <td>${{ purchase.total_amount }}</td>
+                            <td>
+                                <span class="badge 
+                                    {% if purchase.status == 'RECEIVED' %}bg-success
+                                    {% elif purchase.status == 'PENDING' %}bg-warning
+                                    {% else %}bg-danger{% endif %}">
+                                    {{ purchase.get_status_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <a href="{% url 'pharmacy:purchase_detail' purchase.pk %}" 
+                                   class="btn btn-sm btn-info">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                {% if purchase.status == 'PENDING' %}
+                                <form method="post" action="{% url 'pharmacy:receive_purchase' purchase.pk %}" 
+                                      style="display: inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-success" 
+                                            onclick="return confirm('Are you sure you want to receive this purchase?')">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">No purchase orders found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

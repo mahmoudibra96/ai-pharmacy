@@ -1,0 +1,105 @@
+{% extends 'pharmacy/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Medicines</h2>
+        {% if user.is_authenticated %}
+        <a href="{% url 'pharmacy:medicine_add' %}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add New Medicine
+        </a>
+        {% endif %}
+    </div>
+
+    <div class="row">
+        {% for medicine in medicines %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100">
+                {% if medicine.image %}
+                <img src="{{ medicine.image.url }}" class="card-img-top" alt="{{ medicine.name }}" style="height: 200px; object-fit: cover;">
+                {% endif %}
+                
+                <div class="card-body">
+                    <h5 class="card-title">{{ medicine.name }}</h5>
+                    <p class="card-text text-muted mb-2">{{ medicine.get_category_display }}</p>
+                    
+                    <div class="mb-2">
+                        <strong>Barcode:</strong> 
+                        <span class="text-muted">{{ medicine.barcode_number }}</span>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="h5 text-primary mb-0">${{ medicine.price }}</span>
+                        <span class="badge {% if medicine.stock > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                            Stock: {{ medicine.stock }}
+                        </span>
+                    </div>
+                    
+                    <div class="mb-2">
+                        <span class="badge {% if medicine.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                            {{ medicine.is_active|yesno:"Active,Inactive" }}
+                        </span>
+                    </div>
+                    
+                    <p class="card-text small text-muted">
+                        {{ medicine.description|truncatewords:20 }}
+                    </p>
+                </div>
+
+                <div class="card-footer bg-transparent">
+                    <div class="btn-group w-100">
+                        <a href="{% url 'pharmacy:medicine_detail' medicine.pk %}" class="btn btn-outline-primary">
+                            <i class="fas fa-eye"></i> View
+                        </a>
+                        {% if user.is_authenticated %}
+                        <a href="{% url 'pharmacy:update_stock' medicine.barcode_number %}" class="btn btn-outline-success">
+                            <i class="fas fa-plus"></i> Stock
+                        </a>
+                        <a href="{% url 'pharmacy:medicine_edit' medicine.pk %}" class="btn btn-outline-secondary">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                No medicines found.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if is_paginated %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">&laquo; First</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+            </li>
+            {% endif %}
+
+            <li class="page-item active">
+                <span class="page-link">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last &raquo;</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endblock %} 

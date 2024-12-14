@@ -1,0 +1,7 @@
+<!-- Add this in your sales report template -->
+<div class="text-end mb-3">
+    <a href="{% url 'pharmacy:export_sales_report' %}{% if start_date %}?start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}" 
+       class="btn btn-success">
+        <i class="fas fa-file-excel"></i> Export to CSV
+    </a>
+</div> 

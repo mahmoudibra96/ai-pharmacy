@@ -1,0 +1,129 @@
+{% extends 'pharmacy/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h3>Update Stock for {{ medicine.name }}</h3>
+                    <div class="mb-3">
+                        <strong>Current Total Stock:</strong> {{ total_stock }}
+                    </div>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <div id="stock-entries">
+                            <div class="stock-entry mb-3 border p-3 rounded">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Quantity</label>
+                                        <input type="number" name="quantity[]" class="form-control" min="1" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Expiration Date <span class="text-danger">*</span></label>
+                                        <input type="date" 
+                                               name="expiration_date[]" 
+                                               class="form-control" 
+                                               required 
+                                               min="{{ today|date:'Y-m-d' }}"
+                                               data-bs-toggle="tooltip" 
+                                               title="Required field - Must be a future date">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <button type="button" class="btn btn-secondary" id="add-more">
+                                <i class="fas fa-plus"></i> Add More Stock
+                            </button>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-primary">Update Stock</button>
+                            <a href="{% url 'pharmacy:stock_scan' %}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h3>Stock History</h3>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Date Added</th>
+                                <th>Quantity</th>
+                                <th>Expires</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in stock_entries %}
+                            <tr>
+                                <td>{{ entry.created_at|date:"Y-m-d" }}</td>
+                                <td>{{ entry.quantity }}</td>
+                                <td>{{ entry.expiration_date|date:"Y-m-d" }}</td>
+                                <td>
+                                    {% if entry.expiration_date < today %}
+                                        <span class="badge bg-danger">Expired</span>
+                                    {% elif entry.expiration_date|timeuntil:today < '30 days' %}
+                                        <span class="badge bg-warning">Near Expiry</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Good</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const stockEntries = document.getElementById('stock-entries');
+    const addMoreBtn = document.getElementById('add-more');
+    
+    addMoreBtn.addEventListener('click', function() {
+        const newEntry = document.createElement('div');
+        newEntry.className = 'stock-entry mb-3 border p-3 rounded';
+        newEntry.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" name="quantity[]" class="form-control" min="1" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Expiration Date <span class="text-danger">*</span></label>
+                    <input type="date" 
+                           name="expiration_date[]" 
+                           class="form-control" 
+                           required 
+                           min="{{ today|date:'Y-m-d' }}"
+                           data-bs-toggle="tooltip" 
+                           title="Required field - Must be a future date">
+                </div>
+            </div>
+            <button type="button" class="btn btn-danger btn-sm mt-2 remove-entry">
+                <i class="fas fa-trash"></i> Remove
+            </button>
+        `;
+        
+        stockEntries.appendChild(newEntry);
+        
+        // Add remove functionality
+        newEntry.querySelector('.remove-entry').addEventListener('click', function() {
+            newEntry.remove();
+        });
+    });
+});
+</script>
+{% endblock %} 

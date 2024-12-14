@@ -1,0 +1,69 @@
+{% extends 'pharmacy/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Reports Dashboard</h2>
+
+    <div class="row">
+        <!-- Sales Reports -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-chart-line text-primary"></i> Sales Reports
+                    </h5>
+                    <p class="card-text">View and analyze sales data, trends, and performance metrics.</p>
+                    <a href="{% url 'pharmacy:sales_report' %}" class="btn btn-primary">
+                        View Sales Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory Reports -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-boxes text-success"></i> Inventory Reports
+                    </h5>
+                    <p class="card-text">Track stock levels, movements, and inventory valuations.</p>
+                    <a href="{% url 'pharmacy:inventory_report' %}" class="btn btn-success">
+                        View Inventory Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Expiry Reports -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-calendar-times text-warning"></i> Expiry Reports
+                    </h5>
+                    <p class="card-text">Monitor expiring products and manage stock rotation.</p>
+                    <a href="{% url 'pharmacy:expiry_report' %}" class="btn btn-warning">
+                        View Expiry Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Financial Reports -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-dollar-sign text-info"></i> Financial Reports
+                    </h5>
+                    <p class="card-text">Analyze revenue, payments, and financial performance.</p>
+                    <a href="{% url 'pharmacy:financial_report' %}" class="btn btn-info">
+                        View Financial Reports
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

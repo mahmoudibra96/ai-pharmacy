@@ -1,0 +1,179 @@
+{% extends 'pharmacy/base.html' %}
+{% load pharmacy_extras %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h2 class="mb-4">Dashboard</h2>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <!-- Daily Sales -->
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Today's Sales</h5>
+                    <h2 class="card-text">${{ daily_revenue }}</h2>
+                    <p class="mb-0">{{ daily_sales_count }} sales today</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monthly Sales -->
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Monthly Sales</h5>
+                    <h2 class="card-text">${{ monthly_revenue }}</h2>
+                    <p class="mb-0">{{ monthly_sales_count }} sales this month</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Inventory Status -->
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Products</h5>
+                    <h2 class="card-text">{{ total_medicines }}</h2>
+                    <p class="mb-0">{{ out_of_stock }} out of stock</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts -->
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">Alerts</h5>
+                    <h2 class="card-text">{{ low_stock_items.count }}</h2>
+                    <p class="mb-0">items low in stock</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Low Stock Alerts -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Low Stock Alerts</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Medicine</th>
+                                    <th>Current Stock</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for medicine in low_stock_items %}
+                                <tr>
+                                    <td>{{ medicine.name }}</td>
+                                    <td>
+                                        <span class="badge bg-danger">{{ medicine.stock }}</span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'pharmacy:update_stock' medicine.barcode_number %}" 
+                                           class="btn btn-sm btn-primary">
+                                            Update Stock
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center">No low stock items</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Expiring Soon -->
+        <div class="col-md-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Expiring Soon</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Medicine</th>
+                                    <th>Quantity</th>
+                                    <th>Expiry Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for entry in expiring_soon %}
+                                <tr>
+                                    <td>{{ entry.medicine.name }}</td>
+                                    <td>{{ entry.quantity }}</td>
+                                    <td>
+                                        <span class="badge bg-warning text-dark">
+                                            {{ entry.expiration_date|date:"M d, Y" }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center">No items expiring soon</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Selling Products -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Top Selling Products</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Medicine</th>
+                                    <th>Total Sold</th>
+                                    <th>Current Stock</th>
+                                    <th>Price</th>
+                                    <th>Revenue</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for medicine in top_medicines %}
+                                <tr>
+                                    <td>{{ medicine.name }}</td>
+                                    <td>{{ medicine.total_sold }}</td>
+                                    <td>{{ medicine.stock }}</td>
+                                    <td>${{ medicine.price }}</td>
+                                    <td>${{ medicine.total_sold|multiply:medicine.price }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center">No sales data available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

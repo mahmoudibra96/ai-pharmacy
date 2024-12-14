@@ -1,0 +1,374 @@
+{% extends 'pharmacy/base.html' %}
+
+{% block content %}
+<!-- Main content -->
+<div class="container-fluid mt-4">
+    <!-- Customer Selection Card -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <label for="customer-select" class="form-label">Select Customer</label>
+                    <select id="customer-select" class="form-control select2" style="width: 100%;">
+                        {% if sale.customer %}
+                            <option value="{{ sale.customer.id }}" selected>
+                                {{ sale.customer.name }} ({{ sale.customer.phone }}) - Points: {{ sale.customer.points }}
+                            </option>
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <a href="{% url 'pharmacy:customer_add' %}" class="btn btn-success">
+                        <i class="fas fa-plus"></i> New Customer
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Side - Product Entry -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h3>Point of Sale</h3>
+                    <form method="post" class="mb-4">
+                        {% csrf_token %}
+                        <input type="hidden" name="customer_id" id="form-customer-id" value="{{ sale.customer.id|default:'' }}">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="form-group">
+                                    <label for="barcode">Scan Barcode</label>
+                                    <input type="text" name="barcode" id="barcode" class="form-control" required autofocus>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="quantity">Quantity</label>
+                                    <input type="number" name="quantity" id="quantity" class="form-control" value="1" min="1" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-plus"></i> Add to Cart
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Cart Items -->
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Price</th>
+                                    <th>Quantity</th>
+                                    <th>Subtotal</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in sale_items %}
+                                <tr>
+                                    <td>{{ item.medicine.name }}</td>
+                                    <td>${{ item.price }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td>${{ item.subtotal }}</td>
+                                    <td>
+                                        <form method="post" action="{% url 'pharmacy:pos_remove_item' item.id %}" style="display: inline;">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-danger btn-sm">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side - Payment -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h4>Sale Summary</h4>
+                    <div class="mb-4">
+                        <h2 class="text-primary">Total: $<span id="totalAmount">{{ total }}</span></h2>
+                    </div>
+
+                    <form method="post" action="{% url 'pharmacy:pos_complete_sale' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="sale_id" value="{{ sale.id }}">
+                        <input type="hidden" name="customer_id" id="selected-customer-id" value="{{ sale.customer.id|default:'' }}">
+                        
+                        <div class="form-group mb-3">
+                            <label>Payment Method</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="payment_method" id="cash" value="CASH" checked>
+                                <label class="btn btn-outline-primary" for="cash">
+                                    <i class="fas fa-money-bill-wave"></i> Cash
+                                </label>
+
+                                <input type="radio" class="btn-check" name="payment_method" id="card" value="CARD">
+                                <label class="btn btn-outline-primary" for="card">
+                                    <i class="fas fa-credit-card"></i> Card
+                                </label>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success btn-lg w-100" {% if not sale_items %}disabled{% endif %}>
+                            <i class="fas fa-check-circle"></i> Complete Sale
+                        </button>
+                    </form>
+
+                    <div class="mt-3">
+                        <button class="btn btn-danger w-100" id="cancelSale">
+                            <i class="fas fa-times-circle"></i> Cancel Sale
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Print styles -->
+<style type="text/css" media="print">
+    @page {
+        margin: 0;
+        size: 80mm 297mm;  /* Standard thermal receipt size */
+    }
+
+    /* Hide everything except receipt */
+    body * {
+        visibility: hidden;
+    }
+
+    /* Show only receipt content */
+    #receipt, #receipt * {
+        visibility: visible;
+    }
+
+    /* Position and style receipt */
+    #receipt {
+        position: fixed;
+        left: 50%;
+        transform: translateX(-50%);
+        top: 0;
+        width: 80mm;  /* Standard receipt width */
+        padding: 10mm;
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.2;
+        background: white;
+    }
+
+    /* Hide modal elements */
+    .modal-header, 
+    .modal-footer, 
+    .btn, 
+    .no-print {
+        display: none !important;
+    }
+
+    /* Compact receipt items */
+    .receipt-items {
+        margin: 5mm 0;
+    }
+
+    .receipt-items > div {
+        margin-bottom: 2mm;
+    }
+
+    /* Adjust spacing */
+    hr {
+        margin: 3mm 0;
+    }
+
+    h4 {
+        margin: 0 0 3mm 0;
+        font-size: 14px;
+    }
+
+    p {
+        margin: 2mm 0;
+    }
+</style>
+
+<!-- Receipt Modal -->
+{% if show_receipt %}
+<div class="modal fade" id="receiptModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header no-print">
+                <h5 class="modal-title">Sale Complete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="receipt">
+                    <h4 class="text-center">Elersraa Pharmacy</h4>
+                    <p class="text-center" style="margin-bottom: 5mm;">Sale #{{ completed_sale.id }}</p>
+                    <hr>
+                    <div class="receipt-items">
+                        {% for item in completed_items %}
+                        <div class="d-flex justify-content-between">
+                            <span style="width: 70%;">{{ item.medicine.name }} x {{ item.quantity }}</span>
+                            <span style="width: 30%; text-align: right;">${{ item.subtotal }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between" style="font-weight: bold; margin-bottom: 5mm;">
+                        <span>Total:</span>
+                        <span>${{ completed_total }}</span>
+                    </div>
+                    <div class="text-center" style="font-size: 11px;">
+                        <p>Thank you for your purchase!</p>
+                        <p>{{ completed_sale.created_at|date:"F d, Y H:i" }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer no-print">
+                <button type="button" class="btn btn-primary" onclick="window.print()">
+                    <i class="fas fa-print"></i> Print
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" onclick="window.location.reload()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    new bootstrap.Modal(document.getElementById('receiptModal')).show();
+});
+</script>
+{% endif %}
+
+<!-- Expiry Date Selection Modal -->
+{% if show_expiry_modal %}
+<div class="modal fade" id="expiryModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Select Expiration Date</h5>
+            </div>
+            <div class="modal-body">
+                <p>Multiple expiration dates available for {{ medicine.name }}</p>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="barcode" value="{{ medicine.barcode_number }}">
+                    <input type="hidden" name="quantity" value="{{ quantity }}">
+                    
+                    <div class="form-group">
+                        <label for="expiry_date">Select Expiration Date:</label>
+                        <select name="expiry_date" id="expiry_date" class="form-control" required>
+                            <option value="">Choose expiration date...</option>
+                            {% for entry in stock_entries %}
+                            <option value="{{ entry.expiration_date|date:'Y-m-d' }}">
+                                {{ entry.expiration_date|date:"F d, Y" }} (Stock: {{ entry.quantity }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button type="submit" class="btn btn-primary">Add to Cart</button>
+                        <a href="{% url 'pharmacy:pos' %}" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    new bootstrap.Modal(document.getElementById('expiryModal')).show();
+});
+</script>
+{% endif %}
+
+<!-- General JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle cancel sale
+    document.getElementById('cancelSale').addEventListener('click', function() {
+        if (confirm('Are you sure you want to cancel this sale?')) {
+            window.location.reload();
+        }
+    });
+
+    // Auto-focus barcode input
+    document.getElementById('barcode').focus();
+});
+</script>
+
+<script>
+$(document).ready(function() {
+    // Initialize Select2 for customer search
+    $('#customer-select').select2({
+        placeholder: 'Search customer by name or phone...',
+        allowClear: true,
+        ajax: {
+            url: "{% url 'pharmacy:customer_search' %}",
+            dataType: 'json',
+            delay: 250,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            data: function(params) {
+                return {
+                    term: params.term || ''
+                };
+            },
+            processResults: function(data) {
+                return {
+                    results: data.results.map(function(item) {
+                        return {
+                            id: item.id,
+                            text: item.text + ' - Points: ' + item.points
+                        };
+                    })
+                };
+            },
+            cache: true
+        }
+    }).on('select2:select', function(e) {
+        var customerId = e.params.data.id;
+        $('#selected-customer-id').val(customerId);
+        $('#form-customer-id').val(customerId);  // Update the form's hidden input
+        console.log('Customer selected:', e.params.data);
+    }).on('select2:unselect', function() {
+        $('#selected-customer-id').val('');
+        $('#form-customer-id').val('');  // Clear the form's hidden input
+        console.log('Customer unselected');
+    });
+});
+</script>
+
+<!-- Add this in the head section or with other styles -->
+<style>
+.select2-container {
+    width: 100% !important;
+}
+
+.select2-container .select2-selection--single {
+    height: 38px;
+    border: 1px solid #ced4da;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: 38px;
+}
+
+.select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: 36px;
+}
+</style>
+{% endblock %} 

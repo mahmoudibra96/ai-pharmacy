@@ -1,0 +1,87 @@
+{% extends 'pharmacy/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h2>Customer Details</h2>
+        </div>
+        <div class="col-md-6 text-end">
+            <a href="{% url 'pharmacy:customer_list' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to List
+            </a>
+            <a href="{% url 'pharmacy:customer_edit' customer.pk %}" class="btn btn-primary">
+                <i class="fas fa-edit"></i> Edit
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Customer Info -->
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Customer Information</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Name:</strong> {{ customer.name }}</p>
+                    <p><strong>Phone:</strong> {{ customer.phone }}</p>
+                    <p><strong>Email:</strong> {{ customer.email|default:"Not provided" }}</p>
+                    <p><strong>Address:</strong><br>{{ customer.address|default:"Not provided" }}</p>
+                    <p><strong>Loyalty Points:</strong> {{ customer.points }}</p>
+                    <p><strong>Status:</strong> 
+                        <span class="badge {% if customer.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                            {{ customer.is_active|yesno:"Active,Inactive" }}
+                        </span>
+                    </p>
+                    <p><strong>Customer Since:</strong> {{ customer.created_at|date:"F d, Y" }}</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Purchase History -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Purchase History</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Items</th>
+                                    <th>Total</th>
+                                    <th>Payment</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for sale in sales %}
+                                <tr>
+                                    <td>{{ sale.created_at|date:"F d, Y H:i" }}</td>
+                                    <td>{{ sale.items.count }} items</td>
+                                    <td>${{ sale.total_amount }}</td>
+                                    <td>{{ sale.get_payment_method_display }}</td>
+                                    <td>
+                                        <a href="{% url 'pharmacy:sale_detail' sale.id %}" 
+                                           class="btn btn-sm btn-info">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center">No purchase history</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

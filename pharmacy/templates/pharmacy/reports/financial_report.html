@@ -1,0 +1,107 @@
+{% extends 'pharmacy/base.html' %}
+{% load pharmacy_extras %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Financial Report</h2>
+
+    <!-- Date Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label for="year" class="form-label">Year</label>
+                    <select class="form-select" id="year" name="year">
+                        {% for year_option in years %}
+                        <option value="{{ year_option }}" {% if year_option == year %}selected{% endif %}>
+                            {{ year_option }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="month" class="form-label">Month</label>
+                    <select class="form-select" id="month" name="month">
+                        <option value="">All Months</option>
+                        {% for m in "1,2,3,4,5,6,7,8,9,10,11,12"|split:"," %}
+                        <option value="{{ m }}" {% if m|stringformat:"i" == month|stringformat:"i" %}selected{% endif %}>
+                            {{ m|date:"F" }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">Filter</button>
+                    <a href="{% url 'pharmacy:financial_report' %}" class="btn btn-secondary">Reset</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Monthly Revenue Chart -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Monthly Revenue</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Revenue</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for revenue in monthly_revenue %}
+                        <tr>
+                            <td>{{ revenue.month|date:"F" }}</td>
+                            <td>${{ revenue.total }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="2" class="text-center">No revenue data available</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Distribution -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Payment Method Distribution</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Payment Method</th>
+                            <th>Number of Sales</th>
+                            <th>Total Amount</th>
+                            <th>Percentage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payment_distribution %}
+                        <tr>
+                            <td>{{ payment.get_payment_method_display }}</td>
+                            <td>{{ payment.count }}</td>
+                            <td>${{ payment.total }}</td>
+                            <td>{{ payment.count|percentage:total_sales }}%</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center">No payment data available</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

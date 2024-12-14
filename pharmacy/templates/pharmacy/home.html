@@ -1,0 +1,104 @@
+{% extends "pharmacy/base.html" %}
+
+{% block content %}
+<div class="container">
+    <!-- Hero Section -->
+    <div class="card mb-4 bg-primary text-white">
+        <div class="card-body py-5 text-center" style="background: linear-gradient(135deg, #2c3e50, #3498db);">
+            <h1 class="display-4 fw-bold mb-4">Welcome to Elersraa Pharmacy</h1>
+            <p class="lead mb-4">Your trusted healthcare partner</p>
+            <button class="btn btn-light btn-lg">Shop Now</button>
+        </div>
+    </div>
+
+    <!-- Features Section -->
+    <div class="row mb-5">
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 text-center p-4">
+                <div class="card-body">
+                    <i class="fas fa-shipping-fast fa-3x mb-3 text-primary"></i>
+                    <h3>Fast Delivery</h3>
+                    <p>Get your medications delivered right to your doorstep</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 text-center p-4">
+                <div class="card-body">
+                    <i class="fas fa-user-md fa-3x mb-3 text-primary"></i>
+                    <h3>Expert Care</h3>
+                    <p>Professional pharmacists available for consultation</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 text-center p-4">
+                <div class="card-body">
+                    <i class="fas fa-pills fa-3x mb-3 text-primary"></i>
+                    <h3>Wide Selection</h3>
+                    <p>Comprehensive range of medicines and health products</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Services & Hours Section -->
+    <div class="row mb-5">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">
+                        <i class="fas fa-star text-primary me-2"></i>Our Services
+                    </h2>
+                    <div class="list-group">
+                        <div class="list-group-item border-0 d-flex align-items-center">
+                            <i class="fas fa-prescription me-3 text-primary"></i>
+                            <div>
+                                <h5 class="mb-1">Prescription Filling</h5>
+                                <p class="mb-0 text-muted">Quick and accurate prescription services</p>
+                            </div>
+                        </div>
+                        <div class="list-group-item border-0 d-flex align-items-center">
+                            <i class="fas fa-comments me-3 text-primary"></i>
+                            <div>
+                                <h5 class="mb-1">Medical Consultations</h5>
+                                <p class="mb-0 text-muted">Professional healthcare advice</p>
+                            </div>
+                        </div>
+                        <div class="list-group-item border-0 d-flex align-items-center">
+                            <i class="fas fa-heartbeat me-3 text-primary"></i>
+                            <div>
+                                <h5 class="mb-1">Health Monitoring</h5>
+                                <p class="mb-0 text-muted">Regular health check-ups and monitoring</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h2 class="card-title mb-4">
+                        <i class="fas fa-clock text-primary me-2"></i>Opening Hours
+                    </h2>
+                    <div class="list-group">
+                        <div class="list-group-item border-0 d-flex justify-content-between align-items-center">
+                            <strong>Monday - Friday</strong>
+                            <span class="badge bg-primary rounded-pill">8:00 AM - 9:00 PM</span>
+                        </div>
+                        <div class="list-group-item border-0 d-flex justify-content-between align-items-center">
+                            <strong>Saturday</strong>
+                            <span class="badge bg-primary rounded-pill">9:00 AM - 7:00 PM</span>
+                        </div>
+                        <div class="list-group-item border-0 d-flex justify-content-between align-items-center">
+                            <strong>Sunday</strong>
+                            <span class="badge bg-primary rounded-pill">10:00 AM - 6:00 PM</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

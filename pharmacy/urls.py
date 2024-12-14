@@ -1,0 +1,48 @@
+from django.urls import path, include
+from . import views
+
+app_name = 'pharmacy'
+
+urlpatterns = [
+    path('', views.home, name='home'),
+    path('medicines/', views.MedicineListView.as_view(), name='medicine_list'),
+    path('medicine/<int:pk>/', views.MedicineDetailView.as_view(), name='medicine_detail'),
+    path('medicine/add/', views.MedicineCreateView.as_view(), name='medicine_add'),
+    path('medicine/<int:pk>/edit/', views.MedicineUpdateView.as_view(), name='medicine_edit'),
+    path('medicine/<int:pk>/delete/', views.MedicineDeleteView.as_view(), name='medicine_delete'),
+    path('stock/scan/', views.stock_scan, name='stock_scan'),
+    path('stock/check/', views.check_barcode, name='check_barcode'),
+    path('stock/check/<str:barcode>/', views.check_barcode, name='check_barcode_with_param'),
+    path('stock/update/<str:barcode>/', views.update_stock, name='update_stock'),
+    path('pos/', views.pos_view, name='pos'),
+    path('pos/remove/<int:item_id>/', views.pos_remove_item, name='pos_remove_item'),
+    path('pos/complete/', views.pos_complete_sale, name='pos_complete_sale'),
+    path('sales/', views.sales_history, name='sales_history'),
+    path('sales/<int:sale_id>/', views.sale_detail, name='sale_detail'),
+    path('dashboard/', views.dashboard, name='dashboard'),
+    path('stock/management/', views.StockManagementView.as_view(), name='stock_management'),
+    path('stock/view/', views.stock_view, name='stock_view'),
+    path('suppliers/', views.SupplierListView.as_view(), name='supplier_list'),
+    path('supplier/add/', views.SupplierCreateView.as_view(), name='supplier_add'),
+    path('supplier/<int:pk>/', views.SupplierDetailView.as_view(), name='supplier_detail'),
+    path('supplier/<int:pk>/edit/', views.SupplierUpdateView.as_view(), name='supplier_edit'),
+    path('purchases/', views.PurchaseListView.as_view(), name='purchase_list'),
+    path('purchase/add/', views.PurchaseCreateView.as_view(), name='purchase_add'),
+    path('purchase/<int:pk>/', views.PurchaseDetailView.as_view(), name='purchase_detail'),
+    path('purchase/<int:pk>/receive/', views.receive_purchase, name='receive_purchase'),
+    path('reports/', include([
+        path('', views.report_dashboard, name='report_dashboard'),
+        path('sales/', views.sales_report, name='sales_report'),
+        path('inventory/', views.inventory_report, name='inventory_report'),
+        path('expiry/', views.expiry_report, name='expiry_report'),
+        path('financial/', views.financial_report, name='financial_report'),
+        path('export/sales/', views.export_sales_report, name='export_sales_report'),
+        path('export/inventory/', views.export_inventory_report, name='export_inventory_report'),
+    ])),
+    path('customers/', views.CustomerListView.as_view(), name='customer_list'),
+    path('customer/add/', views.CustomerCreateView.as_view(), name='customer_add'),
+    path('customer/<int:pk>/', views.CustomerDetailView.as_view(), name='customer_detail'),
+    path('customer/<int:pk>/edit/', views.CustomerUpdateView.as_view(), name='customer_edit'),
+    path('customer/search/', views.customer_search, name='customer_search'),
+    path('customers/analytics/', views.customer_analytics, name='customer_analytics'),
+]
