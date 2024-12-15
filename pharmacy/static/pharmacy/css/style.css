@@ -518,4 +518,15 @@ input[type="password"]:focus {
 .dropdown-menu-end {
     right: 0;
     left: auto;
+}
+
+.ai-suggestions {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    border-left: 4px solid #3498db;
+}
+
+.ai-suggestions p {
+    margin-bottom: 0.5rem;
 } 

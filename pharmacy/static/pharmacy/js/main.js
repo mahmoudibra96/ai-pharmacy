@@ -9,3 +9,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 }); 
+
+function requestStock(medicineName) {
+    alert(`Stock request for ${medicineName} has been noted. We'll notify when available.`);
+    // You can implement actual stock request functionality here
+} 

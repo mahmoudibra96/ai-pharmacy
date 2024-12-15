@@ -20,6 +20,9 @@ from datetime import datetime
 from django.db.models import Q
 from .forms import UserProfileForm, ChangePasswordForm
 from django.core.exceptions import ValidationError
+import requests
+from django.conf import settings
+from decimal import Decimal
 
 # List all medicines
 class MedicineListView(ListView):
@@ -1276,3 +1279,121 @@ class PrescriptionUpdateView(LoginRequiredMixin, UpdateView):
             return super().form_valid(form)
         else:
             return self.render_to_response(self.get_context_data(form=form))
+
+@login_required
+def product_search(request):
+    query = request.GET.get('query', '')
+    results = []
+    suggestions = {
+        'ai_suggestions': None,
+        'suggested_stock': []  # Will hold stock status of AI suggestions
+    }
+    
+    if query:
+        # Search in local database
+        results = Medicine.objects.filter(
+            Q(name__icontains=query) |
+            Q(description__icontains=query)
+        ).distinct()
+        
+        # If no exact results, get AI suggestions and check stock
+        if not results:
+            try:
+                API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
+                headers = {"Authorization": f"Bearer {settings.HUGGINGFACE_API_KEY}"}
+                
+                prompt = f"""
+                Question: What are some common alternative medicines or treatments for {query}?
+                Please list exactly 3 specific medicine names that are commonly used.
+                Format: Just list the medicine names, one per line.
+                """
+                
+                response = requests.post(
+                    API_URL,
+                    headers=headers,
+                    json={"inputs": prompt}
+                )
+                
+                if response.status_code == 200:
+                    # Split response into medicines, handling both newlines and commas
+                    suggested_medicines = []
+                    raw_suggestions = response.json()[0]['generated_text'].strip().split('\n')
+                    for suggestion in raw_suggestions:
+                        # Split by comma and clean up each medicine name
+                        medicines = [med.strip() for med in suggestion.split(',')]
+                        suggested_medicines.extend(medicines)
+                    
+                    # Remove empty strings and duplicates
+                    suggested_medicines = list(filter(None, suggested_medicines))
+                    suggested_medicines = list(dict.fromkeys(suggested_medicines))
+                    
+                    # Check stock for each suggested medicine
+                    stock_status = []
+                    seen_medicines = set()  # Keep track of matched medicines to avoid duplicates
+
+                    for med_name in suggested_medicines:
+                        med_name = med_name.strip().lower()  # Convert to lowercase for comparison
+                        
+                        # Skip if medicine name is too short or already seen
+                        if len(med_name) <= 3:
+                            continue
+                            
+                        # Search for this medicine in our inventory with more precise matching
+                        stock_med = None
+                        
+                        # Try exact match first
+                        exact_match = Medicine.objects.filter(
+                            name__iexact=med_name
+                        ).first()
+                        
+                        if exact_match:
+                            stock_med = exact_match
+                        else:
+                            # Try partial matches if no exact match found
+                            partial_matches = Medicine.objects.filter(
+                                Q(name__icontains=med_name) |
+                                Q(name__icontains=med_name.replace(' ', ''))
+                            ).exclude(id__in=[m.id for m in seen_medicines])
+                            
+                            if partial_matches:
+                                # Get the closest match by name length
+                                stock_med = min(partial_matches, 
+                                              key=lambda x: abs(len(x.name) - len(med_name)))
+                        
+                        # Only add if we found a match and haven't seen it before
+                        if stock_med and stock_med.id not in {m.id for m in seen_medicines}:
+                            seen_medicines.add(stock_med)
+                            stock_status.append({
+                                'name': med_name.title(),
+                                'in_stock': True,
+                                'medicine': stock_med,
+                                'search_term': med_name,
+                                'match_type': 'exact' if exact_match else 'partial'
+                            })
+                        else:
+                            # No match found
+                            stock_status.append({
+                                'name': med_name.title(),
+                                'in_stock': False,
+                                'medicine': None,
+                                'search_term': med_name,
+                                'match_type': 'none'
+                            })
+                    
+                    suggestions['ai_suggestions'] = {
+                        'text': '\n'.join(med.title() for med in suggested_medicines),  # Format nicely for display
+                        'disclaimer': 'These suggestions are AI-generated. Always consult a healthcare professional before making any changes to your medication.'
+                    }
+                    suggestions['suggested_stock'] = stock_status
+                
+            except Exception as e:
+                suggestions['ai_suggestions'] = {
+                    'error': f"Could not get AI suggestions at this time: {str(e)}"
+                }
+    
+    context = {
+        'query': query,
+        'results': results,
+        'suggestions': suggestions,
+    }
+    return render(request, 'pharmacy/search/product_search.html', context)

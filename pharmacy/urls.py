@@ -54,4 +54,5 @@ urlpatterns = [
     path('prescription/<int:pk>/edit/', views.PrescriptionUpdateView.as_view(), name='prescription_edit'),
     path('prescription/<int:pk>/dispense/', views.dispense_prescription, name='dispense_prescription'),
     path('prescription/<int:pk>/request-refill/', views.request_refill, name='request_refill'),
+    path('search/', views.product_search, name='product_search'),
 ]
