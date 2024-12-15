@@ -131,29 +131,30 @@
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle user-section" href="#" id="userDropdown" 
                                data-bs-toggle="dropdown">
-                                <i class="fas fa-user-circle"></i>
+                                {% if user.userprofile.profile_pic %}
+                                    <img src="{{ user.userprofile.profile_pic.url }}" 
+                                         alt="Profile" 
+                                         class="rounded-circle me-2"
+                                         style="width: 32px; height: 32px; object-fit: cover;">
+                                {% else %}
+                                    <i class="fas fa-user-circle me-2"></i>
+                                {% endif %}
                                 {{ user.username }}
                             </a>
-                            <ul class="dropdown-menu dropdown-menu-end">
+                            <div class="dropdown-menu dropdown-menu-end">
+                                <a class="dropdown-item" href="{% url 'pharmacy:profile_view' %}">
+                                    <i class="fas fa-user"></i> Profile
+                                </a>
                                 {% if user.is_staff %}
-                                    <li>
-                                        <a class="dropdown-item" href="{% url 'admin:index' %}">
-                                            <i class="fas fa-cog"></i> Admin Panel
-                                        </a>
-                                    </li>
-                                    <li><hr class="dropdown-divider"></li>
+                                <a class="dropdown-item" href="{% url 'admin:index' %}">
+                                    <i class="fas fa-cog"></i> Admin Panel
+                                </a>
                                 {% endif %}
-                                <li>
-                                    <a class="dropdown-item" href="#">
-                                        <i class="fas fa-user"></i> Profile
-                                    </a>
-                                </li>
-                                <li>
-                                    <a class="dropdown-item" href="{% url 'logout' %}">
-                                        <i class="fas fa-sign-out-alt"></i> Logout
-                                    </a>
-                                </li>
-                            </ul>
+                                <div class="dropdown-divider"></div>
+                                <a class="dropdown-item" href="{% url 'logout' %}">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </a>
+                            </div>
                         </li>
                     {% else %}
                         <li class="nav-item">

@@ -495,4 +495,27 @@ input[type="password"]:focus {
         padding: 0.8rem 1rem;
         width: 100%;
     }
+}
+
+/* Add these styles for the navbar profile picture */
+.user-section img.rounded-circle {
+    border: 2px solid rgba(255,255,255,0.5);
+    transition: all 0.3s ease;
+}
+
+.user-section:hover img.rounded-circle {
+    border-color: white;
+    transform: scale(1.1);
+}
+
+.user-section {
+    display: flex !important;
+    align-items: center !important;
+    padding: 0.5rem 1rem !important;
+}
+
+/* Adjust dropdown alignment */
+.dropdown-menu-end {
+    right: 0;
+    left: auto;
 } 

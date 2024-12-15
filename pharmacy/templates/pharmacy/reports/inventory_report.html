@@ -1,6 +1,196 @@
-<!-- Add this in your inventory report template -->
-<div class="text-end mb-3">
-    <a href="{% url 'pharmacy:export_inventory_report' %}" class="btn btn-success">
-        <i class="fas fa-file-excel"></i> Export to CSV
-    </a>
-</div> 
+{% extends 'pharmacy/base.html' %}
+{% load pharmacy_extras %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <h2>Inventory Report</h2>
+        </div>
+        <div class="col-md-6 text-end">
+            <a href="{% url 'pharmacy:export_inventory_report' %}" class="btn btn-success">
+                <i class="fas fa-file-excel"></i> Export to CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Products</h5>
+                    <h2 class="card-text">{{ medicines.count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Total Value</h5>
+                    <h2 class="card-text">${{ total_value|floatformat:2 }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">Low Stock Items</h5>
+                    <h2 class="card-text">{{ low_stock.count }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Low Stock Alert -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h5 class="mb-0">Low Stock Alerts</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Medicine</th>
+                            <th>Current Stock</th>
+                            <th>Reorder Level</th>
+                            <th>Unit Price</th>
+                            <th>Category</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for medicine in low_stock %}
+                        <tr>
+                            <td>{{ medicine.name }}</td>
+                            <td>
+                                <span class="badge bg-danger">{{ medicine.stock }}</span>
+                            </td>
+                            <td>{{ medicine.reorder_level }}</td>
+                            <td>${{ medicine.price }}</td>
+                            <td>{{ medicine.get_category_display }}</td>
+                            <td>
+                                <a href="{% url 'pharmacy:update_stock' medicine.barcode_number %}" 
+                                   class="btn btn-sm btn-primary">
+                                    <i class="fas fa-plus"></i> Update Stock
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">No low stock items</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stock Movement -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0">Stock Movement History</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Medicine</th>
+                            <th>Total Stock In</th>
+                            <th>Current Stock</th>
+                            <th>Stock Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in stock_movement %}
+                        <tr>
+                            <td>{{ item.medicine__name }}</td>
+                            <td>{{ item.total_in }}</td>
+                            <td>
+                                {% for medicine in medicines %}
+                                    {% if medicine.name == item.medicine__name %}
+                                        {{ medicine.stock }}
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for medicine in medicines %}
+                                    {% if medicine.name == item.medicine__name %}
+                                        ${{ medicine.stock|multiply:medicine.price|floatformat:2 }}
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center">No stock movement data</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Current Inventory -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Complete Inventory List</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Medicine</th>
+                            <th>Category</th>
+                            <th>Current Stock</th>
+                            <th>Unit Price</th>
+                            <th>Total Value</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for medicine in medicines %}
+                        <tr>
+                            <td>{{ medicine.name }}</td>
+                            <td>{{ medicine.get_category_display }}</td>
+                            <td>{{ medicine.stock }}</td>
+                            <td>${{ medicine.price }}</td>
+                            <td>${{ medicine.stock|multiply:medicine.price|floatformat:2 }}</td>
+                            <td>
+                                {% if medicine.stock == 0 %}
+                                    <span class="badge bg-danger">Out of Stock</span>
+                                {% elif medicine.stock <= medicine.reorder_level %}
+                                    <span class="badge bg-warning">Low Stock</span>
+                                {% else %}
+                                    <span class="badge bg-success">In Stock</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{% url 'pharmacy:medicine_detail' medicine.pk %}" 
+                                   class="btn btn-sm btn-info">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                <a href="{% url 'pharmacy:update_stock' medicine.barcode_number %}" 
+                                   class="btn btn-sm btn-primary">
+                                    <i class="fas fa-plus"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">No medicines found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

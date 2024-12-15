@@ -45,4 +45,7 @@ urlpatterns = [
     path('customer/<int:pk>/edit/', views.CustomerUpdateView.as_view(), name='customer_edit'),
     path('customer/search/', views.customer_search, name='customer_search'),
     path('customers/analytics/', views.customer_analytics, name='customer_analytics'),
+    path('profile/', views.profile_view, name='profile_view'),
+    path('profile/edit/', views.profile_edit, name='profile_edit'),
+    path('profile/change-password/', views.change_password, name='change_password'),
 ]

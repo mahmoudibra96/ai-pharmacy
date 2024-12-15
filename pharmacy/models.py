@@ -145,9 +145,17 @@ class UserProfile(models.Model):
     role = models.CharField(max_length=20, choices=ROLE_CHOICES)
     phone = models.CharField(max_length=20, blank=True)
     address = models.TextField(blank=True)
+    profile_pic = models.ImageField(upload_to='profile_pics/', blank=True, null=True)
+    bio = models.TextField(blank=True)
+    date_of_birth = models.DateField(null=True, blank=True)
     
     def __str__(self):
         return f"{self.user.username} - {self.get_role_display()}"
+
+    def get_profile_pic_url(self):
+        if self.profile_pic:
+            return self.profile_pic.url
+        return '/static/pharmacy/images/default_profile.png'
 
 class Supplier(models.Model):
     name = models.CharField(max_length=200)

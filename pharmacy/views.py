@@ -18,6 +18,7 @@ from .forms import CustomUserCreationForm
 import csv
 from datetime import datetime
 from django.db.models import Q
+from .forms import UserProfileForm, ChangePasswordForm
 
 # List all medicines
 class MedicineListView(ListView):
@@ -1079,3 +1080,48 @@ def customer_analytics(request):
         'monthly_new_customers': monthly_new_customers,
     }
     return render(request, 'pharmacy/customer_analytics.html', context)
+
+@login_required
+def profile_view(request):
+    return render(request, 'pharmacy/profile/view.html', {
+        'profile': request.user.userprofile
+    })
+
+@login_required
+def profile_edit(request):
+    if request.method == 'POST':
+        form = UserProfileForm(request.POST, request.FILES, instance=request.user.userprofile)
+        if form.is_valid():
+            profile = form.save(commit=False)
+            
+            # Update User model fields
+            user = profile.user
+            user.first_name = form.cleaned_data['first_name']
+            user.last_name = form.cleaned_data['last_name']
+            user.email = form.cleaned_data['email']
+            user.save()
+            
+            profile.save()
+            messages.success(request, 'Profile updated successfully!')
+            return redirect('pharmacy:profile_view')
+    else:
+        form = UserProfileForm(instance=request.user.userprofile)
+    
+    return render(request, 'pharmacy/profile/edit.html', {'form': form})
+
+@login_required
+def change_password(request):
+    if request.method == 'POST':
+        form = ChangePasswordForm(request.POST)
+        if form.is_valid():
+            if request.user.check_password(form.cleaned_data['current_password']):
+                request.user.set_password(form.cleaned_data['new_password'])
+                request.user.save()
+                messages.success(request, 'Password changed successfully!')
+                return redirect('login')
+            else:
+                messages.error(request, 'Current password is incorrect!')
+    else:
+        form = ChangePasswordForm()
+    
+    return render(request, 'pharmacy/profile/change_password.html', {'form': form})

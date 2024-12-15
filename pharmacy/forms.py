@@ -94,3 +94,37 @@ class CustomerSearchForm(forms.Form):
         required=False,
         widget=forms.TextInput(attrs={'placeholder': 'Search by name or phone'})
     )
+
+class UserProfileForm(forms.ModelForm):
+    first_name = forms.CharField(max_length=30)
+    last_name = forms.CharField(max_length=30)
+    email = forms.EmailField()
+
+    class Meta:
+        model = UserProfile
+        fields = ['phone', 'address', 'profile_pic', 'bio', 'date_of_birth']
+        widgets = {
+            'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
+            'bio': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.user:
+            self.fields['first_name'].initial = self.instance.user.first_name
+            self.fields['last_name'].initial = self.instance.user.last_name
+            self.fields['email'].initial = self.instance.user.email
+
+class ChangePasswordForm(forms.Form):
+    current_password = forms.CharField(widget=forms.PasswordInput)
+    new_password = forms.CharField(widget=forms.PasswordInput)
+    confirm_password = forms.CharField(widget=forms.PasswordInput)
+
+    def clean(self):
+        cleaned_data = super().clean()
+        new_password = cleaned_data.get('new_password')
+        confirm_password = cleaned_data.get('confirm_password')
+
+        if new_password and confirm_password and new_password != confirm_password:
+            raise forms.ValidationError("New passwords don't match!")
+        return cleaned_data
