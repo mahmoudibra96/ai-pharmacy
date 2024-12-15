@@ -4,21 +4,22 @@ from django.contrib import messages
 from django.urls import reverse_lazy, reverse
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import F, Sum, Count, Avg, Max
-from django.db.models.functions import ExtractMonth
+from django.db.models import F, Sum, Count, Avg, Max, Q
+from django.db.models.functions import ExtractMonth, TruncDate
 from django.utils import timezone
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_http_methods
-from .models import Medicine, StockEntry, Sale, SaleItem, Supplier, Purchase, Customer, Prescription
-from .forms import MedicineForm, SupplierForm, PurchaseForm, PurchaseItemForm, CustomerForm, CustomerSearchForm, PrescriptionForm, PrescriptionItemFormSet
+from .models import Medicine, StockEntry, Sale, SaleItem, Supplier, Purchase, Customer, Prescription, SearchHistory
+from .forms import (
+    MedicineForm, SupplierForm, PurchaseForm, PurchaseItemForm, 
+    CustomerForm, CustomerSearchForm, PrescriptionForm, PrescriptionItemFormSet,
+    CustomUserCreationForm, UserProfileForm, ChangePasswordForm
+)
 from django.contrib.auth.forms import UserCreationForm
 from .mixins import RoleRequiredMixin
-from .forms import CustomUserCreationForm
 import csv
-from datetime import datetime
-from django.db.models import Q
-from .forms import UserProfileForm, ChangePasswordForm
+from datetime import datetime, timedelta
 from django.core.exceptions import ValidationError
 import requests
 from django.conf import settings
@@ -1286,7 +1287,7 @@ def product_search(request):
     results = []
     suggestions = {
         'ai_suggestions': None,
-        'suggested_stock': []  # Will hold stock status of AI suggestions
+        'suggested_stock': []
     }
     
     if query:
@@ -1295,6 +1296,13 @@ def product_search(request):
             Q(name__icontains=query) |
             Q(description__icontains=query)
         ).distinct()
+        
+        # Record search history
+        SearchHistory.objects.create(
+            user=request.user,
+            query=query,
+            found_results=bool(results)
+        )
         
         # If no exact results, get AI suggestions and check stock
         if not results:
@@ -1330,14 +1338,14 @@ def product_search(request):
                     # Check stock for each suggested medicine
                     stock_status = []
                     seen_medicines = set()  # Keep track of matched medicines to avoid duplicates
-
+                    
                     for med_name in suggested_medicines:
                         med_name = med_name.strip().lower()  # Convert to lowercase for comparison
                         
                         # Skip if medicine name is too short or already seen
                         if len(med_name) <= 3:
                             continue
-                            
+                        
                         # Search for this medicine in our inventory with more precise matching
                         stock_med = None
                         
@@ -1381,7 +1389,7 @@ def product_search(request):
                             })
                     
                     suggestions['ai_suggestions'] = {
-                        'text': '\n'.join(med.title() for med in suggested_medicines),  # Format nicely for display
+                        'text': '\n'.join(med.title() for med in suggested_medicines),
                         'disclaimer': 'These suggestions are AI-generated. Always consult a healthcare professional before making any changes to your medication.'
                     }
                     suggestions['suggested_stock'] = stock_status
@@ -1397,3 +1405,43 @@ def product_search(request):
         'suggestions': suggestions,
     }
     return render(request, 'pharmacy/search/product_search.html', context)
+
+@login_required
+def search_analytics(request):
+    # Get date range from request or default to last 30 days
+    days = int(request.GET.get('days', 30))
+    start_date = timezone.now() - timedelta(days=days)
+    
+    # Popular searches
+    popular_searches = SearchHistory.objects.filter(
+        timestamp__gte=start_date
+    ).values('query').annotate(
+        count=Count('id'),
+        success_rate=Count('id', filter=Q(found_results=True)) * 100.0 / Count('id'),
+        click_rate=Count('id', filter=Q(clicked_result=True)) * 100.0 / Count('id')
+    ).order_by('-count')[:10]
+    
+    # Searches with no results
+    no_results = SearchHistory.objects.filter(
+        found_results=False,
+        timestamp__gte=start_date
+    ).values('query').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+    
+    # Search trends over time
+    search_trends = SearchHistory.objects.filter(
+        timestamp__gte=start_date
+    ).annotate(
+        date=TruncDate('timestamp')
+    ).values('date').annotate(
+        count=Count('id')
+    ).order_by('date')
+    
+    context = {
+        'popular_searches': popular_searches,
+        'no_results': no_results,
+        'search_trends': search_trends,
+        'days': days,
+    }
+    return render(request, 'pharmacy/search/analytics.html', context)

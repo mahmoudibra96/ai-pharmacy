@@ -1,0 +1,155 @@
+{% extends 'pharmacy/base.html' %}
+{% load pharmacy_extras %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Search Analytics</h2>
+
+    <!-- Time Range Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-auto">
+                    <select name="days" class="form-select" onchange="this.form.submit()">
+                        <option value="7" {% if days == 7 %}selected{% endif %}>Last 7 days</option>
+                        <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 days</option>
+                        <option value="90" {% if days == 90 %}selected{% endif %}>Last 90 days</option>
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Popular Searches -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Popular Searches</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Query</th>
+                                    <th>Count</th>
+                                    <th>Success Rate</th>
+                                    <th>Click Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for search in popular_searches %}
+                                <tr>
+                                    <td>{{ search.query }}</td>
+                                    <td>{{ search.count }}</td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-success" 
+                                                 style="width: {{ search.success_rate }}%">
+                                                {{ search.success_rate|floatformat:1 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="progress">
+                                            <div class="progress-bar bg-info" 
+                                                 style="width: {{ search.click_rate }}%">
+                                                {{ search.click_rate|floatformat:1 }}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center">No search data available</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Searches with No Results -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0">Searches with No Results</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Query</th>
+                                    <th>Count</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for search in no_results %}
+                                <tr>
+                                    <td>{{ search.query }}</td>
+                                    <td>{{ search.count }}</td>
+                                    <td>
+                                        <a href="{% url 'pharmacy:medicine_add' %}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            Add Product
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center">No failed searches</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Trends Chart -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Search Trends</h5>
+        </div>
+        <div class="card-body">
+            <canvas id="searchTrendsChart"></canvas>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('searchTrendsChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [{% for trend in search_trends %}'{{ trend.date|date:"M d" }}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+            datasets: [{
+                label: 'Number of Searches',
+                data: [{% for trend in search_trends %}{{ trend.count }}{% if not forloop.last %}, {% endif %}{% endfor %}],
+                borderColor: '#3498db',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
+{% endblock %} 

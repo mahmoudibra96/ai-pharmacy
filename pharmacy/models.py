@@ -7,6 +7,8 @@ from django.core.files import File
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class Customer(models.Model):
     name = models.CharField(max_length=200)
@@ -246,3 +248,36 @@ class PrescriptionItem(models.Model):
 
     def __str__(self):
         return f"{self.medicine.name} - {self.dosage}"
+
+class SearchHistory(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    query = models.CharField(max_length=100)
+    found_results = models.BooleanField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    clicked_result = models.BooleanField(default=False)  # Track if user clicked any result
+    suggested_query = models.CharField(max_length=100, blank=True, null=True)  # For "Did you mean"
+
+    class Meta:
+        ordering = ['-timestamp']
+        verbose_name_plural = "Search histories"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.query}"
+
+@receiver(post_save, sender=User)
+def create_user_profile(sender, instance, created, **kwargs):
+    if created:
+        UserProfile.objects.create(
+            user=instance,
+            role='CASHIER'  # Default role, you can change this
+        )
+
+@receiver(post_save, sender=User)
+def save_user_profile(sender, instance, **kwargs):
+    try:
+        instance.userprofile.save()
+    except UserProfile.DoesNotExist:
+        UserProfile.objects.create(
+            user=instance,
+            role='CASHIER'
+        )
