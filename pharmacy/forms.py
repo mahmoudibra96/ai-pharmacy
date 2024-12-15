@@ -6,6 +6,8 @@ from .models import Supplier
 from .models import Purchase
 from .models import PurchaseItem
 from .models import Customer
+from django.forms import inlineformset_factory
+from .models import Prescription, PrescriptionItem
 
 class MedicineForm(forms.ModelForm):
     barcode_number = forms.CharField(
@@ -128,3 +130,36 @@ class ChangePasswordForm(forms.Form):
         if new_password and confirm_password and new_password != confirm_password:
             raise forms.ValidationError("New passwords don't match!")
         return cleaned_data
+
+class PrescriptionForm(forms.ModelForm):
+    class Meta:
+        model = Prescription
+        fields = [
+            'customer', 'doctor_name', 'doctor_contact', 
+            'prescription_date', 'expiry_date', 'refills_allowed',
+            'notes', 'image'
+        ]
+        widgets = {
+            'prescription_date': forms.DateInput(attrs={'type': 'date'}),
+            'expiry_date': forms.DateInput(attrs={'type': 'date'}),
+            'notes': forms.Textarea(attrs={'rows': 3}),
+        }
+
+class PrescriptionItemForm(forms.ModelForm):
+    class Meta:
+        model = PrescriptionItem
+        fields = ['medicine', 'quantity', 'dosage', 'duration', 'instructions']
+        widgets = {
+            'instructions': forms.Textarea(attrs={'rows': 2}),
+        }
+
+# Create formset for prescription items
+PrescriptionItemFormSet = inlineformset_factory(
+    Prescription,
+    PrescriptionItem,
+    form=PrescriptionItemForm,
+    extra=1,  # Number of empty forms to display
+    can_delete=True,  # Allow deleting items
+    min_num=1,  # Minimum number of forms
+    validate_min=True,  # Enforce minimum number
+)

@@ -10,8 +10,8 @@ from django.utils import timezone
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_http_methods
-from .models import Medicine, StockEntry, Sale, SaleItem, Supplier, Purchase, Customer
-from .forms import MedicineForm, SupplierForm, PurchaseForm, PurchaseItemForm, CustomerForm, CustomerSearchForm
+from .models import Medicine, StockEntry, Sale, SaleItem, Supplier, Purchase, Customer, Prescription
+from .forms import MedicineForm, SupplierForm, PurchaseForm, PurchaseItemForm, CustomerForm, CustomerSearchForm, PrescriptionForm, PrescriptionItemFormSet
 from django.contrib.auth.forms import UserCreationForm
 from .mixins import RoleRequiredMixin
 from .forms import CustomUserCreationForm
@@ -19,6 +19,7 @@ import csv
 from datetime import datetime
 from django.db.models import Q
 from .forms import UserProfileForm, ChangePasswordForm
+from django.core.exceptions import ValidationError
 
 # List all medicines
 class MedicineListView(ListView):
@@ -1125,3 +1126,153 @@ def change_password(request):
         form = ChangePasswordForm()
     
     return render(request, 'pharmacy/profile/change_password.html', {'form': form})
+
+class PrescriptionListView(LoginRequiredMixin, ListView):
+    model = Prescription
+    template_name = 'pharmacy/prescription/list.html'
+    context_object_name = 'prescriptions'
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        status = self.request.GET.get('status')
+        search = self.request.GET.get('search')
+
+        if status:
+            queryset = queryset.filter(status=status)
+        if search:
+            queryset = queryset.filter(
+                Q(customer__name__icontains=search) |
+                Q(doctor_name__icontains=search)
+            )
+        return queryset.order_by('-created_at')
+
+class PrescriptionCreateView(LoginRequiredMixin, CreateView):
+    model = Prescription
+    template_name = 'pharmacy/prescription/form.html'
+    form_class = PrescriptionForm
+    success_url = reverse_lazy('pharmacy:prescription_list')
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        response = super().form_valid(form)
+        
+        # Handle prescription items formset
+        formset = PrescriptionItemFormSet(self.request.POST, instance=self.object)
+        if formset.is_valid():
+            formset.save()
+            messages.success(self.request, 'Prescription created successfully!')
+            return response
+        else:
+            self.object.delete()
+            return self.form_invalid(form)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['items_formset'] = PrescriptionItemFormSet(self.request.POST)
+        else:
+            context['items_formset'] = PrescriptionItemFormSet()
+        return context
+
+class PrescriptionDetailView(LoginRequiredMixin, DetailView):
+    model = Prescription
+    template_name = 'pharmacy/prescription/detail.html'
+    context_object_name = 'prescription'
+
+@login_required
+def dispense_prescription(request, pk):
+    prescription = get_object_or_404(Prescription, pk=pk)
+    
+    if request.method == 'POST':
+        if prescription.status != 'PENDING':
+            messages.error(request, 'This prescription cannot be dispensed.')
+            return redirect('pharmacy:prescription_detail', pk=pk)
+        
+        try:
+            with transaction.atomic():
+                # Create a new sale
+                sale = Sale.objects.create(
+                    user=request.user,
+                    customer=prescription.customer
+                )
+                
+                # Add prescription items to sale
+                for item in prescription.items.all():
+                    if item.medicine.stock < item.quantity:
+                        raise ValidationError(f'Insufficient stock for {item.medicine.name}')
+                    
+                    SaleItem.objects.create(
+                        sale=sale,
+                        medicine=item.medicine,
+                        quantity=item.quantity,
+                        price=item.medicine.price,
+                        expiry_date=StockEntry.objects.filter(
+                            medicine=item.medicine,
+                            quantity__gt=0
+                        ).order_by('expiration_date').first().expiration_date
+                    )
+                    
+                    # Update stock
+                    item.medicine.stock -= item.quantity
+                    item.medicine.save()
+                
+                # Update prescription status
+                prescription.status = 'DISPENSED'
+                prescription.sale = sale
+                prescription.save()
+                
+                sale.calculate_total()
+                messages.success(request, 'Prescription dispensed successfully!')
+                return redirect('pharmacy:sale_detail', sale_id=sale.id)
+                
+        except ValidationError as e:
+            messages.error(request, str(e))
+        except Exception as e:
+            messages.error(request, f'Error dispensing prescription: {str(e)}')
+    
+    return redirect('pharmacy:prescription_detail', pk=pk)
+
+@login_required
+def request_refill(request, pk):
+    prescription = get_object_or_404(Prescription, pk=pk)
+    
+    if request.method == 'POST':
+        if prescription.status != 'DISPENSED' or prescription.refills_remaining <= 0:
+            messages.error(request, 'Refill cannot be requested for this prescription.')
+        else:
+            prescription.status = 'REFILL_REQUESTED'
+            prescription.save()
+            messages.success(request, 'Refill requested successfully!')
+    
+    return redirect('pharmacy:prescription_detail', pk=pk)
+
+class PrescriptionUpdateView(LoginRequiredMixin, UpdateView):
+    model = Prescription
+    template_name = 'pharmacy/prescription/form.html'
+    form_class = PrescriptionForm
+    success_url = reverse_lazy('pharmacy:prescription_list')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        if self.request.POST:
+            context['items_formset'] = PrescriptionItemFormSet(
+                self.request.POST, 
+                instance=self.object
+            )
+        else:
+            context['items_formset'] = PrescriptionItemFormSet(instance=self.object)
+        return context
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        formset = context['items_formset']
+        
+        if formset.is_valid():
+            self.object = form.save()
+            formset.instance = self.object
+            formset.save()
+            messages.success(self.request, 'Prescription updated successfully!')
+            return super().form_valid(form)
+        else:
+            return self.render_to_response(self.get_context_data(form=form))

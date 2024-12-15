@@ -204,3 +204,45 @@ class PurchaseItem(models.Model):
     @property
     def subtotal(self):
         return self.quantity * self.price
+
+class Prescription(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('DISPENSED', 'Dispensed'),
+        ('CANCELLED', 'Cancelled'),
+        ('REFILL_REQUESTED', 'Refill Requested'),
+    ]
+
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT)
+    doctor_name = models.CharField(max_length=100)
+    doctor_contact = models.CharField(max_length=20, blank=True)
+    prescription_date = models.DateField()
+    expiry_date = models.DateField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    notes = models.TextField(blank=True)
+    image = models.ImageField(upload_to='prescriptions/', blank=True, null=True)
+    refills_allowed = models.PositiveIntegerField(default=0)
+    refills_remaining = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey('auth.User', on_delete=models.PROTECT)
+    sale = models.OneToOneField(Sale, on_delete=models.SET_NULL, null=True, blank=True)
+
+    def __str__(self):
+        return f"Prescription #{self.id} - {self.customer.name}"
+
+    def save(self, *args, **kwargs):
+        if not self.pk:  # New prescription
+            self.refills_remaining = self.refills_allowed
+        super().save(*args, **kwargs)
+
+class PrescriptionItem(models.Model):
+    prescription = models.ForeignKey(Prescription, related_name='items', on_delete=models.CASCADE)
+    medicine = models.ForeignKey(Medicine, on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField()
+    dosage = models.CharField(max_length=100)  # e.g., "1 tablet twice daily"
+    duration = models.CharField(max_length=100)  # e.g., "7 days"
+    instructions = models.TextField(blank=True)
+
+    def __str__(self):
+        return f"{self.medicine.name} - {self.dosage}"

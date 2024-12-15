@@ -48,4 +48,10 @@ urlpatterns = [
     path('profile/', views.profile_view, name='profile_view'),
     path('profile/edit/', views.profile_edit, name='profile_edit'),
     path('profile/change-password/', views.change_password, name='change_password'),
+    path('prescriptions/', views.PrescriptionListView.as_view(), name='prescription_list'),
+    path('prescription/add/', views.PrescriptionCreateView.as_view(), name='prescription_add'),
+    path('prescription/<int:pk>/', views.PrescriptionDetailView.as_view(), name='prescription_detail'),
+    path('prescription/<int:pk>/edit/', views.PrescriptionUpdateView.as_view(), name='prescription_edit'),
+    path('prescription/<int:pk>/dispense/', views.dispense_prescription, name='dispense_prescription'),
+    path('prescription/<int:pk>/request-refill/', views.request_refill, name='request_refill'),
 ]
