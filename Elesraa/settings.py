@@ -30,7 +30,11 @@ SECRET_KEY = "django-insecure-mps%p+fho#(b2gw$38y0bp!bi=%h2%)9dd(#z@(rsn*$z#_rue
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'mahmoudibrahem.pythonanywhere.com',  # Your PythonAnywhere domain
+    'localhost',                         # For local development
+    '127.0.0.1',                        # For local development
+]
 
 
 # Application definition
