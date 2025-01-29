@@ -32,7 +32,7 @@
             <div class="card mb-4">
                 <div class="card-body">
                     <h3>Point of Sale</h3>
-                    <form method="post" class="mb-4">
+                    <form method="post" action="{% url 'pharmacy:pos_add_to_cart' %}" class="mb-4">
                         {% csrf_token %}
                         <input type="hidden" name="customer_id" id="form-customer-id" value="{{ sale.customer.id|default:'' }}">
                         <div class="row">
@@ -46,6 +46,15 @@
                                 <div class="form-group">
                                     <label for="quantity">Quantity</label>
                                     <input type="number" name="quantity" id="quantity" class="form-control" value="1" min="1" required>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-group">
+                                    <label for="unit_type">Unit Type</label>
+                                    <select name="unit_type" id="unit_type" class="form-control">
+                                        <option value="BOX">Box</option>
+                                        <option value="STRIP">Strip</option>
+                                    </select>
                                 </div>
                             </div>
                         </div>
@@ -62,23 +71,25 @@
                             <thead>
                                 <tr>
                                     <th>Product</th>
-                                    <th>Price</th>
+                                    <th>Unit Type</th>
+                                    <th>Unit Price</th>
                                     <th>Quantity</th>
                                     <th>Subtotal</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for item in sale_items %}
+                                {% for item in cart %}
                                 <tr>
-                                    <td>{{ item.medicine.name }}</td>
-                                    <td>${{ item.price }}</td>
+                                    <td>{{ item.name }}</td>
+                                    <td>{{ item.unit_type }}</td>
+                                    <td>${{ item.price|floatformat:2 }}</td>
                                     <td>{{ item.quantity }}</td>
-                                    <td>${{ item.subtotal }}</td>
+                                    <td>${{ item.total|floatformat:2 }}</td>
                                     <td>
-                                        <form method="post" action="{% url 'pharmacy:pos_remove_item' item.id %}" style="display: inline;">
+                                        <form method="post" action="{% url 'pharmacy:pos_remove_item' forloop.counter0 %}" style="display: inline;">
                                             {% csrf_token %}
-                                            <button type="submit" class="btn btn-danger btn-sm">
+                                            <button type="submit" class="btn btn-sm btn-danger">
                                                 <i class="fas fa-trash"></i>
                                             </button>
                                         </form>
@@ -98,7 +109,7 @@
                 <div class="card-body">
                     <h4>Sale Summary</h4>
                     <div class="mb-4">
-                        <h2 class="text-primary">Total: $<span id="totalAmount">{{ total }}</span></h2>
+                        <h2 class="text-primary">Total: $<span id="totalAmount">{{ cart_total|floatformat:2 }}</span></h2>
                     </div>
 
                     <form method="post" action="{% url 'pharmacy:pos_complete_sale' %}">
@@ -121,7 +132,7 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-success btn-lg w-100" {% if not sale_items %}disabled{% endif %}>
+                        <button type="submit" class="btn btn-success btn-lg w-100" {% if not cart %}disabled{% endif %}>
                             <i class="fas fa-check-circle"></i> Complete Sale
                         </button>
                     </form>

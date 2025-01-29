@@ -15,6 +15,7 @@ urlpatterns = [
     path('stock/check/<str:barcode>/', views.check_barcode, name='check_barcode_with_param'),
     path('stock/update/<str:barcode>/', views.update_stock, name='update_stock'),
     path('pos/', views.pos_view, name='pos'),
+    path('pos/add/', views.pos_add_to_cart, name='pos_add_to_cart'),
     path('pos/remove/<int:item_id>/', views.pos_remove_item, name='pos_remove_item'),
     path('pos/complete/', views.pos_complete_sale, name='pos_complete_sale'),
     path('sales/', views.sales_history, name='sales_history'),

@@ -19,22 +19,33 @@ class MedicineForm(forms.ModelForm):
     class Meta:
         model = Medicine
         fields = [
-            'barcode_number',
-            'name',
-            'description',
-            'price',
-            'category',
-            'image',
-            'is_active'
+            'name', 'description', 'category', 'price',
+            'barcode_number', 'reorder_level', 'image',
+            'strips_per_box', 'can_sell_strips', 'strip_price'
         ]
         widgets = {
-            'description': forms.Textarea(attrs={'rows': 3}),
-            'price': forms.NumberInput(attrs={'min': 0, 'step': 0.01}),
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'category': forms.Select(attrs={'class': 'form-control'}),
+            'price': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.01'}),
+            'barcode_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'reorder_level': forms.NumberInput(attrs={'class': 'form-control'}),
+            'strips_per_box': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
+            'can_sell_strips': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'strip_price': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.01'}),
+            'image': forms.FileInput(attrs={'class': 'form-control'})
         }
+
+    def clean_barcode_number(self):
+        barcode = self.cleaned_data['barcode_number']
+        if not self.instance.pk:  # Only check on create, not update
+            if Medicine.objects.filter(barcode_number=barcode).exists():
+                raise forms.ValidationError('This barcode is already in use.')
+        return barcode
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if self.initial.get('barcode_number'):
+        if self.instance.pk:  # If editing existing medicine
             self.fields['barcode_number'].widget.attrs['readonly'] = True
 
 class POSItemForm(forms.Form):

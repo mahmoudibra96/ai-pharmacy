@@ -1,0 +1,108 @@
+{% extends 'pharmacy/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">{% if form.instance.pk %}تعديل{% else %}إضافة{% endif %} دواء</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data" class="row g-3">
+                        {% csrf_token %}
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">اسم الدواء</label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                                <div class="text-danger">{{ form.name.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">الباركود</label>
+                            {{ form.barcode_number }}
+                            {% if form.barcode_number.errors %}
+                                <div class="text-danger">{{ form.barcode_number.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">الوصف</label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                                <div class="text-danger">{{ form.description.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">التصنيف</label>
+                            {{ form.category }}
+                            {% if form.category.errors %}
+                                <div class="text-danger">{{ form.category.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Box Price</label>
+                            {{ form.price }}
+                            {% if form.price.errors %}
+                                <div class="text-danger">{{ form.price.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">Strip Price (Optional)</label>
+                            {{ form.strip_price }}
+                            <small class="form-text text-muted">Leave empty to calculate from box price</small>
+                            {% if form.strip_price.errors %}
+                                <div class="text-danger">{{ form.strip_price.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">حد إعادة الطلب</label>
+                            {{ form.reorder_level }}
+                            {% if form.reorder_level.errors %}
+                                <div class="text-danger">{{ form.reorder_level.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">عدد الأشرطة في العلبة</label>
+                            {{ form.strips_per_box }}
+                            {% if form.strips_per_box.errors %}
+                                <div class="text-danger">{{ form.strips_per_box.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12">
+                            <div class="form-check">
+                                {{ form.can_sell_strips }}
+                                <label class="form-check-label">يمكن بيع أشرطة منفردة</label>
+                            </div>
+                            {% if form.can_sell_strips.errors %}
+                                <div class="text-danger">{{ form.can_sell_strips.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">الصورة</label>
+                            {{ form.image }}
+                            {% if form.image.errors %}
+                                <div class="text-danger">{{ form.image.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="col-12 mt-4">
+                            <button type="submit" class="btn btn-primary">حفظ</button>
+                            <a href="{% url 'pharmacy:medicine_list' %}" class="btn btn-secondary">إلغاء</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

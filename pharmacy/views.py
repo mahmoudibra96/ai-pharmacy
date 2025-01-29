@@ -339,91 +339,16 @@ def update_stock(request, barcode):
 
 @login_required
 def pos_view(request):
-    if not request.user.userprofile.role in ['ADMIN', 'CASHIER', 'PHARMACIST']:
-        messages.error(request, "You don't have permission to access POS")
-        return redirect('pharmacy:home')
+    """View for the Point of Sale (POS) system"""
+    # Get cart from session
+    cart = request.session.get('cart', [])
     
-    # Get or create an incomplete sale
-    sale = Sale.objects.filter(user=request.user, is_completed=False).first()
-    if not sale:
-        sale = Sale.objects.create(user=request.user)
-    
-    if request.method == 'POST':
-        barcode = request.POST.get('barcode')
-        quantity = int(request.POST.get('quantity', 1))
-        selected_expiry = request.POST.get('expiry_date')  # For when expiry date is selected
-        customer_id = request.POST.get('customer_id')  # Get customer_id from POST
-        
-        # Update customer if provided
-        if customer_id:
-            try:
-                customer = Customer.objects.get(id=customer_id)
-                sale.customer = customer
-                sale.save()
-            except Customer.DoesNotExist:
-                pass
-        
-        try:
-            medicine = Medicine.objects.get(barcode_number=barcode)
-            
-            # Check stock availability
-            if medicine.stock < quantity:
-                messages.error(request, 'Insufficient stock')
-                return redirect('pharmacy:pos')
-            
-            # Get valid stock entries (not expired)
-            valid_stock_entries = StockEntry.objects.filter(
-                medicine=medicine,
-                quantity__gt=0,
-                expiration_date__gt=timezone.now().date()
-            ).order_by('expiration_date')
-            
-            if not valid_stock_entries.exists():
-                messages.error(request, 'No valid stock available')
-                return redirect('pharmacy:pos')
-            
-            # If only one expiry date or expiry date was selected
-            if valid_stock_entries.count() == 1 or selected_expiry:
-                stock_entry = valid_stock_entries.first() if not selected_expiry else valid_stock_entries.get(expiration_date=selected_expiry)
-                
-                # Create sale item
-                SaleItem.objects.create(
-                    sale=sale,
-                    medicine=medicine,
-                    quantity=quantity,
-                    price=medicine.price,
-                    expiry_date=stock_entry.expiration_date
-                )
-                
-                # Update total
-                sale.calculate_total()
-                messages.success(request, f'Added {quantity} {medicine.name} to cart')
-                return redirect('pharmacy:pos')
-            else:
-                # Multiple expiry dates available - show selection form
-                context = {
-                    'sale': sale,
-                    'sale_items': sale.items.all(),
-                    'total': sale.total_amount,
-                    'show_expiry_modal': True,
-                    'medicine': medicine,
-                    'quantity': quantity,
-                    'stock_entries': valid_stock_entries,
-                }
-                return render(request, 'pharmacy/pos.html', context)
-                
-        except Medicine.DoesNotExist:
-            messages.error(request, 'Product not found')
-        except Exception as e:
-            messages.error(request, str(e))
-        
-        return redirect('pharmacy:pos')
+    # Calculate total
+    cart_total = sum(float(item['total']) for item in cart)
     
     context = {
-        'sale': sale,
-        'sale_items': sale.items.all(),
-        'total': sale.total_amount,
-        'show_receipt': False
+        'cart': cart,
+        'cart_total': cart_total
     }
     return render(request, 'pharmacy/pos.html', context)
 
@@ -442,79 +367,79 @@ def pos_remove_item(request, item_id):
     return redirect('pharmacy:pos')
 
 @login_required
+@require_POST
 def pos_complete_sale(request):
-    if request.method == 'POST':
-        try:
-            sale_id = request.POST.get('sale_id')
-            payment_method = request.POST.get('payment_method')
-            customer_id = request.POST.get('customer_id')
+    """Complete the sale and clear the cart"""
+    try:
+        cart = request.session.get('cart', [])
+        if not cart:
+            messages.error(request, 'Cart is empty')
+            return redirect('pharmacy:pos')
+
+        payment_method = request.POST.get('payment_method', 'CASH')
+        customer_id = request.POST.get('customer_id')
+
+        # Create sale record
+        sale = Sale.objects.create(
+            customer_id=customer_id if customer_id else None,
+            payment_method=payment_method,
+            total_amount=sum(float(item['total']) for item in cart),
+            user=request.user,
+            is_completed=True
+        )
+
+        # Create sale items and update stock
+        for item in cart:
+            medicine = Medicine.objects.get(id=item['medicine_id'])
             
-            # Get the sale
-            try:
-                sale = Sale.objects.get(id=sale_id, is_completed=False)
-            except Sale.DoesNotExist:
-                # If refreshing after completion, redirect to new sale
-                last_sale_id = request.session.get('last_completed_sale_id')
-                if last_sale_id:
-                    messages.info(request, 'Sale was already completed. Starting new sale.')
-                    # Clear the session variable
-                    del request.session['last_completed_sale_id']
-                    return redirect('pharmacy:pos')
-                else:
-                    messages.error(request, 'Invalid sale. Please try again.')
-                return redirect('pharmacy:pos')
+            # Calculate stock reduction
+            if item['unit_type'] == 'STRIP':
+                stock_reduction = item['quantity'] / medicine.strips_per_box
+            else:
+                stock_reduction = item['quantity']
             
-            # Check if sale has items
-            if not sale.items.exists():
-                messages.error(request, 'Cannot complete sale with no items')
-                return redirect('pharmacy:pos')
+            # Update stock
+            medicine.stock = F('stock') - stock_reduction
+            medicine.save()
             
-            # Add customer if selected
-            if customer_id:
-                try:
-                    customer = Customer.objects.get(id=customer_id)
-                    sale.customer = customer
-                    # Add loyalty points based on total sale amount
-                    points_added = customer.add_points(sale.total_amount)
-                    messages.success(
-                        request, 
-                        f'Added {points_added} points to {customer.name}\'s account!'
-                    )
-                except Customer.DoesNotExist:
-                    messages.warning(request, 'Selected customer not found')
+            # Get earliest expiring stock entry
+            stock_entry = StockEntry.objects.filter(
+                medicine=medicine,
+                quantity__gt=0,
+                expiration_date__gt=timezone.now().date()
+            ).order_by('expiration_date').first()
             
-            # Update stock for each item
-            for item in sale.items.all():
-                medicine = item.medicine
-                medicine.stock -= item.quantity
-                medicine.save()
+            if not stock_entry:
+                raise ValidationError(f'No valid stock entry found for {medicine.name}')
             
-            # Complete the sale
-            sale.payment_method = payment_method
-            sale.is_completed = True
-            sale.save()
-            
-            # Store completed sale ID in session
-            request.session['last_completed_sale_id'] = sale.id
-            
-            # Create new sale for next transaction
-            new_sale = Sale.objects.create(user=request.user)
-            
-            messages.success(request, f'Sale #{sale.id} completed successfully!')
-            
-            return render(request, 'pharmacy/pos.html', {
-                'sale': new_sale,
-                'sale_items': [],
-                'total': 0,
-                'show_receipt': True,
-                'completed_sale': sale,
-                'completed_items': sale.items.all(),
-                'completed_total': sale.total_amount,
-            })
-            
-        except Exception as e:
-            messages.error(request, f'Error completing sale: {str(e)}')
-            
+            # Create sale item
+            SaleItem.objects.create(
+                sale=sale,
+                medicine=medicine,
+                quantity=item['quantity'],
+                price=item['price'],
+                expiry_date=stock_entry.expiration_date
+            )
+
+        # Add loyalty points if customer exists
+        if sale.customer:
+            points_added = sale.customer.add_points(sale.total_amount)
+            messages.success(
+                request, 
+                f'Added {points_added} points to {sale.customer.name}\'s account!'
+            )
+
+        # Clear the cart
+        request.session['cart'] = []
+        request.session.modified = True
+        
+        messages.success(request, f'Sale completed successfully. Sale ID: {sale.id}')
+        
+    except ValidationError as e:
+        messages.error(request, str(e))
+    except Exception as e:
+        messages.error(request, f'Error completing sale: {str(e)}')
+    
     return redirect('pharmacy:pos')
 
 @login_required
@@ -752,10 +677,15 @@ def report_dashboard(request):
 
 @login_required
 def sales_report(request):
+    """Generate sales report"""
+    # Get date range from request
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
     
+    # Base queryset
     sales = Sale.objects.filter(is_completed=True)
+    
+    # Apply date filters if provided
     if start_date:
         sales = sales.filter(created_at__date__gte=start_date)
     if end_date:
@@ -764,13 +694,21 @@ def sales_report(request):
     # Calculate statistics
     total_sales = sales.count()
     total_revenue = sales.aggregate(total=Sum('total_amount'))['total'] or 0
-    avg_sale = total_revenue / total_sales if total_sales > 0 else 0
+    avg_sale_value = total_revenue / total_sales if total_sales > 0 else 0
     
     # Group by payment method
-    payment_stats = sales.values('payment_method').annotate(
+    payment_methods = sales.values('payment_method').annotate(
         count=Count('id'),
         total=Sum('total_amount')
     )
+    
+    # Group by day
+    daily_sales = sales.annotate(
+        day=TruncDate('created_at')
+    ).values('day').annotate(
+        count=Count('id'),
+        total=Sum('total_amount')
+    ).order_by('day')
     
     # Top selling products
     top_products = SaleItem.objects.filter(
@@ -783,26 +721,27 @@ def sales_report(request):
     ).order_by('-total_quantity')[:10]
     
     context = {
-        'sales': sales,
         'total_sales': total_sales,
         'total_revenue': total_revenue,
-        'avg_sale': avg_sale,
-        'payment_stats': payment_stats,
+        'avg_sale_value': avg_sale_value,
+        'payment_methods': payment_methods,
+        'daily_sales': daily_sales,
         'top_products': top_products,
         'start_date': start_date,
-        'end_date': end_date,
+        'end_date': end_date
     }
-    return render(request, 'pharmacy/reports/sales_report.html', context)
+    
+    return render(request, 'pharmacy/reports/sales.html', context)
 
 @login_required
 def inventory_report(request):
     medicines = Medicine.objects.all()
     
-    # Calculate inventory value
-    total_value = sum(medicine.stock * medicine.price for medicine in medicines)
+    # Calculate inventory value using Decimal
+    total_value = sum(Decimal(str(medicine.stock)) * medicine.price for medicine in medicines)
     
-    # Low stock items (using fixed threshold of 10)
-    low_stock = medicines.filter(stock__lte=10)
+    # Low stock items
+    low_stock = medicines.filter(stock__lte=F('reorder_level'))
     
     # Stock movement
     stock_movement = StockEntry.objects.values(
@@ -817,6 +756,7 @@ def inventory_report(request):
         'low_stock': low_stock,
         'stock_movement': stock_movement,
     }
+    
     return render(request, 'pharmacy/reports/inventory_report.html', context)
 
 @login_required
@@ -1445,3 +1385,59 @@ def search_analytics(request):
         'days': days,
     }
     return render(request, 'pharmacy/search/analytics.html', context)
+
+@login_required
+def pos_add_to_cart(request):
+    if request.method == 'POST':
+        try:
+            barcode = request.POST.get('barcode')
+            quantity = int(request.POST.get('quantity', 1))
+            unit_type = request.POST.get('unit_type', 'BOX')
+            
+            medicine = Medicine.objects.get(barcode_number=barcode)
+            
+            # Check if can sell strips
+            if unit_type == 'STRIP' and not medicine.can_sell_strips:
+                messages.error(request, f'Cannot sell {medicine.name} by strip')
+                return redirect('pharmacy:pos')
+            
+            # Calculate box quantity for stock check
+            if unit_type == 'STRIP':
+                box_quantity = quantity / medicine.strips_per_box
+            else:
+                box_quantity = quantity
+            
+            # Check stock
+            if medicine.stock < box_quantity:
+                messages.error(request, 'Insufficient stock')
+                return redirect('pharmacy:pos')
+            
+            # Calculate unit price and total
+            if unit_type == 'STRIP':
+                unit_price = medicine.get_strip_price()
+            else:
+                unit_price = medicine.price
+                
+            total_price = unit_price * quantity
+            
+            # Add to cart
+            cart = request.session.get('cart', [])
+            cart.append({
+                'medicine_id': medicine.id,
+                'name': medicine.name,
+                'quantity': quantity,
+                'unit_type': unit_type,
+                'price': float(unit_price),
+                'total': float(total_price)
+            })
+            request.session['cart'] = cart
+            request.session.modified = True  # Make sure session is saved
+            
+            messages.success(request, f'Added {quantity} {unit_type} of {medicine.name} to cart')
+            
+        except Medicine.DoesNotExist:
+            messages.error(request, 'Product not found')
+        except Exception as e:
+            messages.error(request, str(e))
+    
+    return redirect('pharmacy:pos')

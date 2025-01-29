@@ -70,6 +70,21 @@ class Medicine(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
     reorder_level = models.IntegerField(default=10, help_text="Minimum stock level before reorder")
+    strips_per_box = models.PositiveIntegerField(
+        default=1,
+        help_text="Number of strips per box"
+    )
+    can_sell_strips = models.BooleanField(
+        default=True,
+        help_text="Allow selling individual strips"
+    )
+    strip_price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Price per strip (optional - if not set, will be calculated from box price)"
+    )
 
     class Meta:
         ordering = ['name']
@@ -108,6 +123,12 @@ class Medicine(models.Model):
 
         super().save(*args, **kwargs)
 
+    def get_strip_price(self):
+        """Get strip price - either custom or calculated from box price"""
+        if self.strip_price:
+            return self.strip_price
+        return self.price / self.strips_per_box if self.strips_per_box > 0 else self.price
+
 class StockEntry(models.Model):
     medicine = models.ForeignKey(Medicine, on_delete=models.CASCADE, related_name='stock_entries')
     quantity = models.IntegerField()
@@ -125,15 +146,25 @@ class StockEntry(models.Model):
             raise ValidationError('Expiration date cannot be in the past')
 
 class SaleItem(models.Model):
-    sale = models.ForeignKey(Sale, related_name='items', on_delete=models.CASCADE)
+    UNIT_CHOICES = [
+        ('BOX', 'Box'),
+        ('STRIP', 'Strip'),
+    ]
+
+    sale = models.ForeignKey(Sale, on_delete=models.CASCADE, related_name='items')
     medicine = models.ForeignKey(Medicine, on_delete=models.PROTECT)
-    quantity = models.PositiveIntegerField()
+    quantity = models.IntegerField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
     expiry_date = models.DateField()
+    unit_type = models.CharField(
+        max_length=5,
+        choices=UNIT_CHOICES,
+        default='BOX'
+    )
 
     @property
     def subtotal(self):
-        return self.quantity * self.price
+        return self.price * self.quantity
 
 class UserProfile(models.Model):
     ROLE_CHOICES = [
