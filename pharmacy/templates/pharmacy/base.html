@@ -39,6 +39,13 @@
                             <i class="fas fa-pills"></i> Medicines
                         </a>
                     </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'stock_scan' %}active{% endif %}" 
+                           href="{% url 'pharmacy:stock_scan' %}">
+                            <i class="fas fa-barcode"></i> Scan
+                        </a>
+                    </li>
                     
                     {% if user.is_authenticated %}
                         {% with user_role=user.userprofile.role %}

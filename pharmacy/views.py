@@ -4,8 +4,8 @@ from django.contrib import messages
 from django.urls import reverse_lazy, reverse
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import F, Sum, Count, Avg, Max, Q
-from django.db.models.functions import ExtractMonth, TruncDate
+from django.db.models import F, Sum, Count, Avg, Max, Q, Case, When, DecimalField
+from django.db.models.functions import ExtractMonth, TruncDate, TruncMonth
 from django.utils import timezone
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
@@ -989,41 +989,41 @@ class CustomerUpdateView(LoginRequiredMixin, UpdateView):
 
 @login_required
 def customer_analytics(request):
-    # Overall statistics
-    total_customers = Customer.objects.count()
-    active_customers = Customer.objects.filter(is_active=True).count()
+    # Get all customers
+    customers = Customer.objects.all()
     
-    # Top customers by purchase amount
-    top_customers = Customer.objects.annotate(
-        total_purchases=Count('sale'),
-        total_spent=Sum('sale__total_amount'),
-        avg_purchase=Avg('sale__total_amount'),
-        last_purchase=Max('sale__created_at')
-    ).filter(total_spent__gt=0).order_by('-total_spent')[:10]
+    # Get completed sales
+    sales = Sale.objects.filter(is_completed=True)
     
-    # Customer loyalty statistics
-    loyalty_stats = Customer.objects.aggregate(
-        total_points=Sum('points'),
-        avg_points=Avg('points')
-    )
+    # Calculate top customers
+    top_customers = customers.annotate(
+        total_purchases=Count('sale', filter=Q(sale__is_completed=True)),
+        total_spent=Sum('sale__total_amount', filter=Q(sale__is_completed=True)),
+        avg_purchase=Case(
+            When(total_purchases__gt=0, 
+                 then=F('total_spent') / F('total_purchases')),
+            default=0,
+            output_field=DecimalField()
+        ),
+        last_purchase=Max('sale__created_at', filter=Q(sale__is_completed=True))
+    ).filter(total_purchases__gt=0).order_by('-total_spent')[:10]
     
-    # Monthly new customers
-    current_year = timezone.now().year
-    monthly_new_customers = Customer.objects.filter(
-        created_at__year=current_year
-    ).annotate(
-        month=ExtractMonth('created_at')
+    # Calculate monthly new customers
+    monthly_customers = Customer.objects.annotate(
+        month=TruncMonth('created_at')
     ).values('month').annotate(
         count=Count('id')
-    ).order_by('month')
+    ).order_by('-month')[:12]
     
     context = {
-        'total_customers': total_customers,
-        'active_customers': active_customers,
+        'total_customers': customers.count(),
+        'active_customers': customers.filter(sale__is_completed=True).distinct().count(),
+        'total_points': customers.aggregate(Sum('points'))['points__sum'] or 0,
+        'avg_points': customers.filter(points__gt=0).aggregate(Avg('points'))['points__avg'] or 0,
         'top_customers': top_customers,
-        'loyalty_stats': loyalty_stats,
-        'monthly_new_customers': monthly_new_customers,
+        'monthly_customers': monthly_customers,
     }
+    
     return render(request, 'pharmacy/customer_analytics.html', context)
 
 @login_required

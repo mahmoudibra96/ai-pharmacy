@@ -7,7 +7,12 @@
         <div class="card-body py-5 text-center" style="background: linear-gradient(135deg, #2c3e50, #3498db);">
             <h1 class="display-4 fw-bold mb-4">Welcome to ElEsraa Pharmacy</h1>
             <p class="lead mb-4">Your trusted healthcare partner</p>
-            <button class="btn btn-light btn-lg">Shop Now</button>
+            <div>
+                <a href="{% url 'pharmacy:pos' %}" class="btn btn-light btn-lg me-2">Shop Now</a>
+                <a href="{% url 'pharmacy:stock_scan' %}" class="btn btn-outline-light btn-lg">
+                    <i class="fas fa-barcode me-2"></i>Scan Products
+                </a>
+            </div>
         </div>
     </div>
 

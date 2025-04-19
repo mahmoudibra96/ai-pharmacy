@@ -1,0 +1,53 @@
+{% extends 'pharmacy/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Search Medicines</h4>
+                </div>
+                <div class="card-body">
+                    <form method="get" class="mb-4">
+                        <div class="input-group">
+                            <input type="text" name="q" class="form-control" 
+                                   value="{{ request.GET.q }}" 
+                                   placeholder="Search by name or barcode...">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </form>
+
+                    {% if alternatives %}
+                    <div class="mt-4">
+                        <h5>Alternative Medicines:</h5>
+                        <div class="list-group">
+                            {% for alt in alternatives %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">{{ alt.name }}</h6>
+                                        <small class="text-muted">Stock: {{ alt.stock }}</small>
+                                    </div>
+                                    <div>
+                                        <span class="badge bg-primary me-2">${{ alt.price }}</span>
+                                        {% if alt.stock > 0 %}
+                                            <span class="badge bg-success">In Stock</span>
+                                        {% else %}
+                                            <span class="badge bg-danger">Out of Stock</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
