@@ -50,6 +50,28 @@ class Sale(models.Model):
         self.save()
         return total
 
+    @property
+    def total_profit(self):
+        """Calculate total profit for this sale"""
+        return sum(item.profit for item in self.items.all())
+
+    @property
+    def profit_margin_percentage(self):
+        """Calculate overall profit margin percentage for this sale"""
+        if self.total_amount > 0:
+            return (self.total_profit / self.total_amount) * 100
+        return 0
+        
+    def get_profit_by_category(self):
+        """Get profits broken down by medicine category"""
+        category_profits = {}
+        for item in self.items.all():
+            category = item.medicine.get_category_display()
+            if category not in category_profits:
+                category_profits[category] = 0
+            category_profits[category] += item.profit
+        return category_profits
+
 class Medicine(models.Model):
     CATEGORY_CHOICES = [
         ('OTC', 'Over The Counter'),
@@ -61,6 +83,11 @@ class Medicine(models.Model):
     name = models.CharField(max_length=200)
     description = models.TextField()
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    purchase_price = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        help_text="Cost price of the product"
+    )
     stock = models.IntegerField(default=0)
     category = models.CharField(max_length=3, choices=CATEGORY_CHOICES)
     image = models.ImageField(upload_to='medicines/', null=True, blank=True)
@@ -129,6 +156,23 @@ class Medicine(models.Model):
             return self.strip_price
         return self.price / self.strips_per_box if self.strips_per_box > 0 else self.price
 
+    def get_profit_per_unit(self):
+        """Calculate profit per unit (box)"""
+        return self.price - self.purchase_price
+
+    def get_profit_margin_percentage(self):
+        """Calculate profit margin as a percentage"""
+        if self.purchase_price > 0:
+            return ((self.price - self.purchase_price) / self.purchase_price) * 100
+        return 0
+
+    def get_strip_profit(self):
+        """Calculate profit per strip"""
+        if self.can_sell_strips:
+            strip_purchase_price = self.purchase_price / self.strips_per_box if self.strips_per_box > 0 else 0
+            return self.get_strip_price() - strip_purchase_price
+        return 0
+
 class StockEntry(models.Model):
     medicine = models.ForeignKey(Medicine, on_delete=models.CASCADE, related_name='stock_entries')
     quantity = models.IntegerField()
@@ -165,6 +209,22 @@ class SaleItem(models.Model):
     @property
     def subtotal(self):
         return self.price * self.quantity
+
+    @property 
+    def profit(self):
+        """Calculate profit for this sale item"""
+        if self.unit_type == 'STRIP':
+            unit_profit = self.medicine.get_strip_profit()
+        else:  # BOX
+            unit_profit = self.medicine.get_profit_per_unit()
+        return unit_profit * self.quantity
+    
+    @property
+    def profit_margin_percentage(self):
+        """Calculate profit margin percentage for this sale"""
+        if self.subtotal > 0:
+            return (self.profit / self.subtotal) * 100
+        return 0
 
 class UserProfile(models.Model):
     ROLE_CHOICES = [
@@ -294,6 +354,100 @@ class SearchHistory(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.query}"
+
+class ProfitAnalytics(models.Model):
+    date = models.DateField(auto_now_add=True)
+    total_sales = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    total_profit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    profit_margin = models.DecimalField(max_digits=5, decimal_places=2, default=0)  # percentage
+    number_of_sales = models.IntegerField(default=0)
+    average_profit_per_sale = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    most_profitable_category = models.CharField(max_length=50, blank=True)
+    most_profitable_medicine = models.ForeignKey(
+        Medicine, 
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='top_profit_days'
+    )
+
+    class Meta:
+        ordering = ['-date']
+        verbose_name_plural = "Profit analytics"
+
+    @classmethod
+    def generate_daily_report(cls, date=None):
+        """Generate or update profit analytics for a specific date"""
+        from django.utils import timezone
+        from django.db.models import Sum, Count
+        
+        if date is None:
+            date = timezone.now().date()
+            
+        sales = Sale.objects.filter(
+            created_at__date=date,
+            is_completed=True
+        )
+        
+        # Calculate daily totals
+        daily_totals = sales.aggregate(
+            total_sales=Sum('total_amount'),
+            number_of_sales=Count('id')
+        )
+        
+        total_sales = daily_totals['total_sales'] or 0
+        number_of_sales = daily_totals['number_of_sales']
+        
+        # Calculate total cost and profit
+        total_cost = 0
+        total_profit = 0
+        category_profits = {}
+        medicine_profits = {}
+        
+        for sale in sales:
+            for item in sale.items.all():
+                if item.unit_type == 'STRIP':
+                    cost = item.medicine.purchase_price / item.medicine.strips_per_box * item.quantity
+                else:
+                    cost = item.medicine.purchase_price * item.quantity
+                    
+                profit = item.profit
+                total_cost += cost
+                total_profit += profit
+                
+                # Track category profits
+                category = item.medicine.get_category_display()
+                category_profits[category] = category_profits.get(category, 0) + profit
+                
+                # Track individual medicine profits
+                medicine_id = item.medicine.id
+                medicine_profits[medicine_id] = medicine_profits.get(medicine_id, 0) + profit
+        
+        # Find most profitable category and medicine
+        most_profitable_category = max(category_profits.items(), key=lambda x: x[1])[0] if category_profits else ''
+        most_profitable_medicine_id = max(medicine_profits.items(), key=lambda x: x[1])[0] if medicine_profits else None
+        
+        # Calculate averages
+        average_profit = total_profit / number_of_sales if number_of_sales > 0 else 0
+        profit_margin = (total_profit / total_sales * 100) if total_sales > 0 else 0
+        
+        # Create or update analytics record
+        analytics, created = cls.objects.update_or_create(
+            date=date,
+            defaults={
+                'total_sales': total_sales,
+                'total_cost': total_cost,
+                'total_profit': total_profit,
+                'profit_margin': profit_margin,
+                'number_of_sales': number_of_sales,
+                'average_profit_per_sale': average_profit,
+                'most_profitable_category': most_profitable_category,
+                'most_profitable_medicine_id': most_profitable_medicine_id if most_profitable_medicine_id else None
+            }
+        )
+        
+        return analytics
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):

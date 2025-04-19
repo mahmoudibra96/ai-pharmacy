@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse_lazy, reverse
-from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import F, Sum, Count, Avg, Max, Q, Case, When, DecimalField
 from django.db.models.functions import ExtractMonth, TruncDate, TruncMonth
@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_http_methods
-from .models import Medicine, StockEntry, Sale, SaleItem, Supplier, Purchase, Customer, Prescription, SearchHistory
+from .models import Medicine, StockEntry, Sale, SaleItem, Supplier, Purchase, Customer, Prescription, SearchHistory, ProfitAnalytics
 from .forms import (
     MedicineForm, SupplierForm, PurchaseForm, PurchaseItemForm, 
     CustomerForm, CustomerSearchForm, PrescriptionForm, PrescriptionItemFormSet,
@@ -24,6 +24,7 @@ from django.core.exceptions import ValidationError
 import requests
 from django.conf import settings
 from decimal import Decimal
+import statistics
 
 # List all medicines
 class MedicineListView(ListView):
@@ -1441,3 +1442,59 @@ def pos_add_to_cart(request):
             messages.error(request, str(e))
     
     return redirect('pharmacy:pos')
+
+class ProfitAnalyticsView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
+    template_name = 'pharmacy/profit_analytics.html'
+    allowed_roles = ['ADMIN']  # Only allow admin users
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Get date range from query params or default to last 30 days
+        end_date = timezone.now().date()
+        start_date = self.request.GET.get('start_date')
+        end_date_param = self.request.GET.get('end_date')
+        
+        if start_date and end_date_param:
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_param, '%Y-%m-%d').date()
+        else:
+            start_date = end_date - timedelta(days=30)
+        
+        # Get analytics data for date range
+        analytics = ProfitAnalytics.objects.filter(
+            date__range=[start_date, end_date]
+        ).order_by('date')
+        
+        # Calculate summary metrics
+        summary = {
+            'total_sales': sum(a.total_sales for a in analytics),
+            'total_profit': sum(a.total_profit for a in analytics),
+            'average_margin': statistics.mean([a.profit_margin for a in analytics]) if analytics else 0,
+            'total_transactions': sum(a.number_of_sales for a in analytics),
+            'avg_profit_per_sale': statistics.mean([a.average_profit_per_sale for a in analytics]) if analytics else 0
+        }
+        
+        # Get category performance
+        category_profits = {}
+        for analytic in analytics:
+            if analytic.most_profitable_category:
+                category_profits[analytic.most_profitable_category] = \
+                    category_profits.get(analytic.most_profitable_category, 0) + analytic.total_profit
+        
+        # Get top performing medicines
+        top_medicines = Medicine.objects.filter(
+            top_profit_days__date__range=[start_date, end_date]
+        ).annotate(
+            total_profit=Sum('top_profit_days__total_profit')
+        ).order_by('-total_profit')[:10]
+        
+        context.update({
+            'analytics': analytics,
+            'summary': summary,
+            'category_profits': category_profits,
+            'top_medicines': top_medicines,
+            'start_date': start_date,
+            'end_date': end_date,
+        })
+        return context

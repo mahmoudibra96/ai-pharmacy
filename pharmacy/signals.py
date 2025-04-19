@@ -5,7 +5,8 @@ from .models import UserProfile
 
 @receiver(post_save, sender=User)
 def create_user_profile(sender, instance, created, **kwargs):
-    if created:
+    # Only create a profile if one doesn't exist
+    if created and not hasattr(instance, 'userprofile'):
         UserProfile.objects.create(
             user=instance,
             role='CASHIER'  # Default role
@@ -13,10 +14,6 @@ def create_user_profile(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=User)
 def save_user_profile(sender, instance, **kwargs):
-    try:
+    # Only update existing profile, don't create new one
+    if hasattr(instance, 'userprofile'):
         instance.userprofile.save()
-    except UserProfile.DoesNotExist:
-        UserProfile.objects.create(
-            user=instance,
-            role='CASHIER'
-        ) 

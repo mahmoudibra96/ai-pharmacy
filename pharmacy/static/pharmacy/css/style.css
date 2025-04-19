@@ -3,26 +3,54 @@
     --secondary-color: #3498db;    /* Light blue */
 }
 
+html, body {
+    overflow-x: hidden;  /* منع التمرير الأفقي */
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #f8f9fa;
 }
 
+/* تنسيقات الناف بار */
 .navbar {
     background: linear-gradient(135deg, #2c3e50, #3498db);
-    padding: 1rem 0;
+    padding: 0.5rem 0;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    width: 100%;
+    overflow: visible !important;
+}
+
+.navbar > .container {
+    padding-left: 0;  /* تقليل المسافة من اليسار */
+    margin-left: 0;   /* تقليل الهامش من اليسار */
+    overflow: visible !important;
 }
 
 .navbar-brand {
     color: white !important;
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     font-weight: bold;
+    padding: 0.5rem 1rem;
+    white-space: nowrap;
+    padding-left: 0.5rem;  /* تقليل المسافة للشعار */
+}
+
+.navbar-nav {
+    margin-left: -0.5rem;  /* تحريك القائمة قليلاً لليسار */
 }
 
 .nav-link {
     color: rgba(255,255,255,0.9) !important;
     transition: all 0.3s ease;
+    padding: 0.5rem 0.6rem !important;  /* تقليل المسافات بين عناصر القائمة */
+    font-size: 0.95rem;
+    white-space: nowrap;
 }
 
 .nav-link:hover {
@@ -59,6 +87,8 @@ body {
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     transition: transform 0.3s ease;
     background-color: white;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .card:hover {
@@ -139,7 +169,47 @@ footer a:hover {
     transform: translateX(5px);
 }
 
-/* ... rest of your CSS ... */
+/* تحسينات للشاشات الصغيرة والمتوسطة */
+@media (max-width: 991.98px) {
+    .navbar-collapse {
+        max-height: calc(100vh - 60px);
+        overflow-y: auto;
+    }
+
+    .navbar-nav {
+        padding: 0.5rem;
+    }
+
+    .nav-link {
+        font-size: 0.9rem;
+        padding: 0.4rem 0.6rem !important;
+    }
+
+    .navbar-nav .dropdown-menu {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+}
+
+/* تنسيقات عامة لمنع التمرير الأفقي */
+.container, 
+.container-fluid {
+    max-width: 100%;
+    padding-right: 15px;
+    padding-left: 15px;
+    overflow-x: hidden;
+}
+
+.row {
+    margin-right: 0;
+    margin-left: 0;
+}
+
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+}
 
 /* Add these styles to your existing CSS */
 .form-label {
@@ -174,359 +244,68 @@ input[type="password"]:focus {
     font-size: 0.875rem;
 }
 
-/* User dropdown styles */
-.dropdown-menu {
-    background-color: #34495e;
+/* إزالة جميع التنسيقات السابقة للقوائم المنسدلة وإضافة تنسيقات جديدة مبسطة */
+
+/* Navbar Dropdown Styles */
+.navbar .dropdown {
+    position: static !important;
+}
+
+.navbar .dropdown-menu {
+    position: absolute !important;
+    left: auto;
+    margin-top: 0 !important;
+    background: #2c3e50;
     border: none;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    padding: 0.5rem 0;
+    z-index: 1021;
+    min-width: 200px;
+}
+
+/* موقع قائمة التقارير */
+#reportsDropdown + .dropdown-menu {
+    transform: translateX(0) !important;
+    top: 100% !important;
+    left: auto !important;
+}
+
+/* موقع قائمة المستخدم */
+#userDropdown + .dropdown-menu {
+    transform: translateX(0) !important;
+    top: 100% !important;
+    right: 0 !important;
+    left: auto !important;
 }
 
 .dropdown-item {
-    color: #bdc3c7 !important;
     padding: 0.7rem 1.5rem;
-    transition: all 0.3s ease;
+    color: rgba(255,255,255,0.9) !important;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
 }
 
 .dropdown-item:hover {
-    background-color: #2c3e50;
+    background-color: #3498db;
     color: #ffffff !important;
 }
 
 .dropdown-divider {
-    border-top-color: #4a6278;
+    border-color: rgba(255,255,255,0.1);
+    margin: 0.5rem 0;
 }
 
-/* User avatar styles */
-.user-avatar {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    margin-right: 0.5rem;
-}
-
-/* Alert styles */
-.alert {
-    border: none;
-    border-radius: 0.5rem;
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-}
-
-.alert-dismissible .btn-close {
-    padding: 1rem;
-}
-
-/* Stock view styles */
-.table-hover tbody tr:hover {
-    background-color: rgba(0,0,0,.075);
-    cursor: pointer;
-}
-
-.card {
-    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    border: none;
-    border-radius: 0.5rem;
-}
-
-.badge {
-    font-weight: 500;
-}
-
-/* Reports Dropdown Styling */
-.navbar-nav .dropdown-menu {
-    background-color: #2c3e50;
-    border: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    margin-top: 0.5rem;
-    border-radius: 10px;
-    padding: 0.5rem 0;
-}
-
-.navbar-nav .dropdown-item {
-    color: rgba(255,255,255,0.9) !important;
-    padding: 0.7rem 1.5rem;
-    transition: all 0.2s ease;
-}
-
-.navbar-nav .dropdown-item i {
-    width: 20px;
-    margin-right: 0.8rem;
-    text-align: center;
-    transition: transform 0.2s ease;
-}
-
-.navbar-nav .dropdown-item:hover {
-    background-color: #3498db;
-    color: white !important;
-    transform: translateX(5px);
-}
-
-.navbar-nav .dropdown-item:hover i {
-    transform: scale(1.1);
-}
-
-/* Dropdown animation */
-.dropdown-menu {
-    animation: dropdownFade 0.2s ease-out;
-}
-
-@keyframes dropdownFade {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* User Section */
-.navbar .user-section {
-    background-color: rgba(255,255,255,0.1);
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    transition: all 0.3s ease;
-}
-
-.navbar .user-section:hover {
-    background-color: rgba(255,255,255,0.2);
-}
-
-/* Mobile Responsiveness */
 @media (max-width: 991.98px) {
-    .navbar-collapse {
-        background-color: #2c3e50;
-        padding: 1rem;
-        border-radius: 0 0 15px 15px;
-        margin-top: 0.5rem;
-    }
-    
-    .navbar-nav .nav-link {
-        padding: 0.8rem 1rem;
-        margin: 0.2rem 0;
-        border-radius: 8px;
-    }
-    
-    .navbar-nav .nav-link:hover {
-        background-color: rgba(255,255,255,0.1);
-        transform: none;
-    }
-    
-    .navbar-toggler {
-        border: none;
-        padding: 0.5rem;
-    }
-    
-    .navbar-toggler:focus {
-        box-shadow: none;
-    }
-    
-    .navbar-toggler-icon {
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.9)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
-    }
-}
-
-/* Active Section Indicator */
-.navbar-nav .nav-item {
-    position: relative;
-}
-
-.navbar-nav .nav-link.active::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 80%;
-    height: 2px;
-    background-color: #3498db;
-    border-radius: 2px;
-}
-
-/* Reports Dropdown Styling */
-.navbar-nav .dropdown-menu {
-    margin-top: 0.5rem;
-    padding: 0.5rem 0;
-}
-
-.navbar-nav .dropdown-item i {
-    width: 20px;
-    margin-right: 0.5rem;
-    text-align: center;
-    opacity: 0.8;
-}
-
-.navbar-nav .dropdown-item:hover i {
-    opacity: 1;
-}
-
-/* Active dropdown item */
-.navbar-nav .dropdown-item.active,
-.navbar-nav .dropdown-item:active {
-    background-color: #3498db;
-    color: #ffffff !important;
-}
-
-/* Dropdown animation */
-.dropdown-menu {
-    animation: dropdownFade 0.2s ease-out;
-}
-
-@keyframes dropdownFade {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Hover effect for dropdown items */
-.dropdown-item {
-    position: relative;
-    padding-left: 2rem !important;
-}
-
-.dropdown-item::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background-color: #3498db;
-    transform: scaleY(0);
-    transition: transform 0.2s ease;
-}
-
-.dropdown-item:hover::before {
-    transform: scaleY(1);
-}
-
-/* Icon and Text Alignment */
-.nav-link,
-.dropdown-item,
-.user-section {
-    display: inline-flex !important;  /* Changed to inline-flex */
-    align-items: center !important;
-    gap: 8px;
-    line-height: 1.5;
-    padding: 0.5rem 1rem;
-}
-
-/* Icon specific styles */
-.nav-link i,
-.dropdown-item i,
-.user-section i {
-    font-size: 16px;  /* Consistent icon size */
-    min-width: 20px;  /* Ensures consistent width */
-    text-align: center;
-}
-
-/* Remove any conflicting styles */
-.nav-link::after,
-.dropdown-item::before {
-    display: none;
-}
-
-/* Dropdown specific adjustments */
-.dropdown-item {
-    padding-left: 1rem !important;  /* Override previous padding */
-    padding-right: 1rem !important;
-}
-
-/* Mobile adjustments */
-@media (max-width: 991.98px) {
-    .nav-link,
-    .dropdown-item {
-        padding: 0.8rem 1rem;
-    }
-}
-
-/* Base navbar styles */
-.navbar-nav .nav-item {
-    display: flex;
-    align-items: center;
-}
-
-/* Icon and Text Alignment - More specific selectors */
-.navbar-nav .nav-link,
-.navbar-nav .dropdown-toggle,
-.navbar-nav .dropdown-item,
-.navbar .user-section {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: flex-start !important;
-    gap: 8px;
-    line-height: 1.5;
-    padding: 0.5rem 1rem;
-    width: 100%;
-}
-
-/* Icon specific styles - More specific selectors */
-.navbar-nav .nav-link i,
-.navbar-nav .dropdown-toggle i,
-.navbar-nav .dropdown-item i,
-.navbar .user-section i {
-    font-size: 16px;
-    min-width: 20px;
-    text-align: center;
-    margin: 0;
-    line-height: inherit;
-}
-
-/* Override Bootstrap's default dropdown arrow */
-.navbar-nav .dropdown-toggle::after {
-    margin-left: auto;
-    vertical-align: middle;
-}
-
-/* User dropdown specific styles */
-.navbar-nav .dropdown .nav-link {
-    white-space: nowrap;
-}
-
-/* Mobile specific adjustments */
-@media (max-width: 991.98px) {
-    .navbar-nav .nav-link,
-    .navbar-nav .dropdown-item {
-        padding: 0.8rem 1rem;
+    .navbar .dropdown-menu {
+        position: static !important;
+        float: none;
         width: 100%;
+        margin: 0;
+        box-shadow: none;
+        background-color: rgba(0,0,0,0.1);
     }
 }
-
-/* Add these styles for the navbar profile picture */
-.user-section img.rounded-circle {
-    border: 2px solid rgba(255,255,255,0.5);
-    transition: all 0.3s ease;
-}
-
-.user-section:hover img.rounded-circle {
-    border-color: white;
-    transform: scale(1.1);
-}
-
-.user-section {
-    display: flex !important;
-    align-items: center !important;
-    padding: 0.5rem 1rem !important;
-}
-
-/* Adjust dropdown alignment */
-.dropdown-menu-end {
-    right: 0;
-    left: auto;
-}
-
-.ai-suggestions {
-    background-color: #f8f9fa;
-    padding: 1rem;
-    border-radius: 0.5rem;
-    border-left: 4px solid #3498db;
-}
-
-.ai-suggestions p {
-    margin-bottom: 0.5rem;
-} 

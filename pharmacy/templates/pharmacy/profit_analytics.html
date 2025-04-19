@@ -1,0 +1,202 @@
+{% extends 'pharmacy/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">Profit Analytics</h2>
+
+    <!-- Date Range Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label for="start_date" class="form-label">Start Date</label>
+                    <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-4">
+                    <label for="end_date" class="form-label">End Date</label>
+                    <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date|date:'Y-m-d' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary d-block w-100">Apply Filter</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4 g-3">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Total Sales</h5>
+                    <h3 class="card-text text-nowrap">${{ summary.total_sales|floatformat:2 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Total Profit</h5>
+                    <h3 class="card-text text-nowrap">${{ summary.total_profit|floatformat:2 }}</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">Average Profit Margin</h5>
+                    <h3 class="card-text text-nowrap">{{ summary.average_margin|floatformat:1 }}%</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <!-- Daily Profit Trend -->
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Daily Profit Trend</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="profitTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Category Performance -->
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Category Performance</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="categoryProfitsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Performing Products -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Top Performing Products</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Total Profit</th>
+                            <th>Profit Margin</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for medicine in top_medicines %}
+                        <tr>
+                            <td class="text-nowrap">{{ medicine.name }}</td>
+                            <td class="text-nowrap">${{ medicine.total_profit|floatformat:2 }}</td>
+                            <td class="text-nowrap">{{ medicine.get_profit_margin_percentage|floatformat:1 }}%</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.container-fluid {
+    padding: 1rem;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.card {
+    height: 100%;
+}
+
+.table-responsive {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.table {
+    margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+    .container-fluid {
+        padding: 0.5rem;
+    }
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Daily Profit Trend Chart
+    const profitTrendCtx = document.getElementById('profitTrendChart').getContext('2d');
+    new Chart(profitTrendCtx, {
+        type: 'line',
+        data: {
+            labels: [{% for item in analytics %}'{{ item.date|date:"M d" }}',{% endfor %}],
+            datasets: [{
+                label: 'Daily Profit',
+                data: [{% for item in analytics %}{{ item.total_profit }},{% endfor %}],
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Daily Profit Trend'
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Category Profits Chart
+    const categoryProfitsCtx = document.getElementById('categoryProfitsChart').getContext('2d');
+    new Chart(categoryProfitsCtx, {
+        type: 'pie',
+        data: {
+            labels: [{% for category, profit in category_profits.items %}'{{ category }}',{% endfor %}],
+            datasets: [{
+                data: [{% for category, profit in category_profits.items %}{{ profit }},{% endfor %}],
+                backgroundColor: [
+                    'rgb(255, 99, 132)',
+                    'rgb(54, 162, 235)',
+                    'rgb(255, 206, 86)',
+                    'rgb(75, 192, 192)',
+                    'rgb(153, 102, 255)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: {
+                    display: true,
+                    text: 'Profit by Category'
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

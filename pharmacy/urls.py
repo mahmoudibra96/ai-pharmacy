@@ -57,4 +57,5 @@ urlpatterns = [
     path('prescription/<int:pk>/request-refill/', views.request_refill, name='request_refill'),
     path('search/', views.product_search, name='product_search'),
     path('search/analytics/', views.search_analytics, name='search_analytics'),
+    path('profit-analytics/', views.ProfitAnalyticsView.as_view(), name='profit_analytics'),
 ]

@@ -19,7 +19,7 @@ class MedicineForm(forms.ModelForm):
     class Meta:
         model = Medicine
         fields = [
-            'name', 'description', 'category', 'price',
+            'name', 'description', 'category', 'price', 'purchase_price',
             'barcode_number', 'reorder_level', 'image',
             'strips_per_box', 'can_sell_strips', 'strip_price'
         ]
@@ -28,6 +28,7 @@ class MedicineForm(forms.ModelForm):
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'category': forms.Select(attrs={'class': 'form-control'}),
             'price': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.01'}),
+            'purchase_price': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.01'}),
             'barcode_number': forms.TextInput(attrs={'class': 'form-control'}),
             'reorder_level': forms.NumberInput(attrs={'class': 'form-control'}),
             'strips_per_box': forms.NumberInput(attrs={'class': 'form-control', 'min': '1'}),
@@ -61,13 +62,15 @@ class CustomUserCreationForm(UserCreationForm):
         fields = UserCreationForm.Meta.fields + ('email', 'first_name', 'last_name')
 
     def save(self, commit=True):
-        user = super().save(commit=True)
-        UserProfile.objects.create(
-            user=user,
-            role=self.cleaned_data['role'],
-            phone=self.cleaned_data['phone'],
-            address=self.cleaned_data['address']
-        )
+        user = super().save(commit=False)
+        if commit:
+            user.save()
+            # Update the profile that was created by the signal
+            user.refresh_from_db()  # Refresh to get the profile created by the signal
+            user.userprofile.role = self.cleaned_data['role']
+            user.userprofile.phone = self.cleaned_data['phone']
+            user.userprofile.address = self.cleaned_data['address']
+            user.userprofile.save()
         return user
 
 class SupplierForm(forms.ModelForm):
