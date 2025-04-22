@@ -100,10 +100,27 @@ class PurchaseItemForm(forms.ModelForm):
 class CustomerForm(forms.ModelForm):
     class Meta:
         model = Customer
-        fields = ['name', 'phone', 'email', 'address']
+        fields = ['name', 'phone', 'email', 'address', 'customer_type', 'discount_percentage']
         widgets = {
             'address': forms.Textarea(attrs={'rows': 3}),
+            'customer_type': forms.Select(attrs={'class': 'form-control'}),
+            'discount_percentage': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'min': '0',
+                'max': '100',
+                'step': '0.01'
+            }),
         }
+
+    def clean_discount_percentage(self):
+        discount = self.cleaned_data['discount_percentage']
+        customer_type = self.cleaned_data.get('customer_type')
+        
+        if customer_type == 'FAMILY':
+            return 0  # سيتم تطبيق الخصم الخاص بالأقارب تلقائياً
+        if discount < 0 or discount > 100:
+            raise forms.ValidationError('نسبة الخصم يجب أن تكون بين 0 و 100')
+        return discount
 
 class CustomerSearchForm(forms.Form):
     search = forms.CharField(

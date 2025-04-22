@@ -11,11 +11,30 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 class Customer(models.Model):
+    CUSTOMER_TYPE_CHOICES = [
+        ('REGULAR', 'عميل عادي'),
+        ('FAMILY', 'من الأقارب'),
+        ('VIP', 'عميل مميز'),
+        ('WHOLESALE', 'تاجر جملة'),
+    ]
+
     name = models.CharField(max_length=200)
     phone = models.CharField(max_length=20, unique=True)
     email = models.EmailField(blank=True)
     address = models.TextField(blank=True)
     points = models.IntegerField(default=0)
+    customer_type = models.CharField(
+        max_length=20,
+        choices=CUSTOMER_TYPE_CHOICES,
+        default='REGULAR',
+        verbose_name='نوع العميل'
+    )
+    discount_percentage = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=0,
+        help_text='نسبة الخصم الخاصة بالعميل'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     is_active = models.BooleanField(default=True)
@@ -29,6 +48,13 @@ class Customer(models.Model):
         self.points += points_to_add
         self.save()
         return points_to_add
+
+    def get_discount_price(self, original_price):
+        """Calculate discounted price based on customer type"""
+        if self.customer_type == 'FAMILY':
+            # للأقارب: نسبة ربح بسيطة فوق سعر الشراء
+            return original_price * Decimal('1.10')  # 10% profit margin
+        return original_price * (1 - (self.discount_percentage / 100))
 
 class Sale(models.Model):
     user = models.ForeignKey('auth.User', on_delete=models.PROTECT)
@@ -207,8 +233,19 @@ class SaleItem(models.Model):
     )
 
     @property
+    def discounted_price(self):
+        """Calculate price after customer discount"""
+        if self.sale.customer:
+            if self.sale.customer.customer_type == 'FAMILY':
+                return self.medicine.purchase_price * Decimal('1.10')  # 10% profit margin for family
+            else:
+                discount = self.sale.customer.discount_percentage / 100
+                return self.price * (1 - discount)
+        return self.price
+
+    @property
     def subtotal(self):
-        return self.price * self.quantity
+        return self.discounted_price * self.quantity
 
     @property 
     def profit(self):

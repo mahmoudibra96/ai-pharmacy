@@ -341,30 +341,101 @@ def update_stock(request, barcode):
 @login_required
 def pos_view(request):
     """View for the Point of Sale (POS) system"""
+    if request.method == 'POST':
+        if request.POST.get('action') == 'cancel':
+            # Clear the cart and customer
+            request.session['cart'] = []
+            request.session['selected_customer_id'] = None
+            request.session.modified = True
+            messages.success(request, 'Sale cancelled successfully')
+            return redirect('pharmacy:pos')
+        elif request.POST.get('customer_id') is not None:
+            # AJAX customer selection
+            customer_id = request.POST.get('customer_id')
+            if customer_id:
+                try:
+                    # Validate customer exists
+                    customer = Customer.objects.get(id=customer_id)
+                    request.session['selected_customer_id'] = customer_id
+                    
+                    # Update cart prices with new customer
+                    cart = request.session.get('cart', [])
+                    updated_cart = []
+                    for item in cart:
+                        medicine = Medicine.objects.get(id=item['medicine_id'])
+                        original_price = medicine.get_strip_price() if item['unit_type'] == 'STRIP' else medicine.price
+                        
+                        # Calculate discounted price based on customer type
+                        if customer.customer_type == 'FAMILY':
+                            # Calculate minimum profitable price
+                            discounted_price = medicine.purchase_price * Decimal('1.10')  # Cost + 10%
+                            if item['unit_type'] == 'STRIP':
+                                discounted_price = discounted_price / medicine.strips_per_box
+                        else:
+                            discount = customer.discount_percentage / 100
+                            discounted_price = original_price * (1 - discount)
+                            # Ensure price doesn't go below cost + 10%
+                            min_price = medicine.purchase_price * Decimal('1.10')
+                            if item['unit_type'] == 'STRIP':
+                                min_price = min_price / medicine.strips_per_box
+                            if discounted_price < min_price:
+                                discounted_price = min_price
+                        
+                        item['original_price'] = float(original_price)
+                        item['discounted_price'] = float(discounted_price)
+                        item['total'] = float(discounted_price * item['quantity'])
+                        updated_cart.append(item)
+                    
+                    request.session['cart'] = updated_cart
+                    request.session.modified = True
+                    
+                except Customer.DoesNotExist:
+                    pass
+            else:
+                # Clear customer selection
+                request.session['selected_customer_id'] = None
+                request.session.modified = True
+            return JsonResponse({'status': 'ok'})
+    
     # Get cart from session
     cart = request.session.get('cart', [])
     
-    # Calculate total
+    # Calculate totals
+    original_total = sum(float(item['original_price'] * item['quantity']) for item in cart)
     cart_total = sum(float(item['total']) for item in cart)
     
+    # Get customer from session
+    customer_id = request.session.get('selected_customer_id')
+    customer = None
+    if customer_id:
+        try:
+            customer = Customer.objects.get(id=customer_id)
+        except Customer.DoesNotExist:
+            request.session['selected_customer_id'] = None
+            
     context = {
         'cart': cart,
-        'cart_total': cart_total
+        'original_total': original_total,
+        'cart_total': cart_total,
+        'selected_customer': customer
     }
+    
     return render(request, 'pharmacy/pos.html', context)
 
 @login_required
 def pos_remove_item(request, item_id):
     if request.method == 'POST':
+        cart = request.session.get('cart', [])
         try:
-            item = SaleItem.objects.get(id=item_id)
-            sale = item.sale
-            item.delete()
-            sale.calculate_total()
-            messages.success(request, 'Item removed from cart')
-        except SaleItem.DoesNotExist:
-            messages.error(request, 'Item not found')
-    
+            if 0 <= item_id < len(cart):
+                cart.pop(item_id)
+                request.session['cart'] = cart
+                request.session.modified = True
+                messages.success(request, 'Item removed from cart')
+            else:
+                messages.error(request, 'Invalid item')
+        except Exception as e:
+            messages.error(request, f'Error removing item: {str(e)}')
     return redirect('pharmacy:pos')
 
 @login_required
@@ -379,17 +450,22 @@ def pos_complete_sale(request):
 
         payment_method = request.POST.get('payment_method', 'CASH')
         customer_id = request.POST.get('customer_id')
+        customer = Customer.objects.get(id=customer_id) if customer_id else None
+
+        # Calculate total with discounts
+        total_amount = sum(float(item['total']) for item in cart)
 
         # Create sale record
         sale = Sale.objects.create(
-            customer_id=customer_id if customer_id else None,
+            customer=customer,
             payment_method=payment_method,
-            total_amount=sum(float(item['total']) for item in cart),
+            total_amount=total_amount,
             user=request.user,
             is_completed=True
         )
 
         # Create sale items and update stock
+        completed_items = []
         for item in cart:
             medicine = Medicine.objects.get(id=item['medicine_id'])
             
@@ -413,26 +489,52 @@ def pos_complete_sale(request):
             if not stock_entry:
                 raise ValidationError(f'No valid stock entry found for {medicine.name}')
             
-            # Create sale item
-            SaleItem.objects.create(
+            # Create sale item with original and discounted prices
+            sale_item = SaleItem.objects.create(
                 sale=sale,
                 medicine=medicine,
                 quantity=item['quantity'],
-                price=item['price'],
+                unit_type=item['unit_type'],
+                price=item['discounted_price'],  # Store the discounted price
                 expiry_date=stock_entry.expiration_date
             )
+            completed_items.append(sale_item)
 
         # Add loyalty points if customer exists
-        if sale.customer:
-            points_added = sale.customer.add_points(sale.total_amount)
+        if customer:
+            points_added = customer.add_points(total_amount)
             messages.success(
                 request, 
-                f'Added {points_added} points to {sale.customer.name}\'s account!'
+                f'Added {points_added} points to {customer.name}\'s account!'
             )
 
         # Clear the cart
         request.session['cart'] = []
         request.session.modified = True
+        
+        # Add receipt data to session for printing
+        request.session['completed_sale'] = {
+            'id': sale.id,
+            'customer': customer.name if customer else None,
+            'items': [
+                {
+                    'name': item.medicine.name,
+                    'quantity': item.quantity,
+                    'unit_type': item.get_unit_type_display(),
+                    'price': float(item.price),
+                    'total': float(item.subtotal)
+                }
+                for item in completed_items
+            ],
+            'total': float(total_amount),
+            'discounts_applied': bool(customer and (customer.customer_type == 'FAMILY' or customer.discount_percentage > 0)),
+            'customer_type': customer.get_customer_type_display() if customer else None,
+            'discount_info': (
+                'سعر التكلفة + 10% فقط' if customer and customer.customer_type == 'FAMILY'
+                else f'خصم {customer.discount_percentage}%' if customer and customer.discount_percentage > 0
+                else None
+            )
+        }
         
         messages.success(request, f'Sale completed successfully. Sale ID: {sale.id}')
         
@@ -1394,8 +1496,10 @@ def pos_add_to_cart(request):
             barcode = request.POST.get('barcode')
             quantity = int(request.POST.get('quantity', 1))
             unit_type = request.POST.get('unit_type', 'BOX')
+            customer_id = request.POST.get('customer_id')
             
             medicine = Medicine.objects.get(barcode_number=barcode)
+            customer = Customer.objects.get(id=customer_id) if customer_id else None
             
             # Check if can sell strips
             if unit_type == 'STRIP' and not medicine.can_sell_strips:
@@ -1413,13 +1517,33 @@ def pos_add_to_cart(request):
                 messages.error(request, 'Insufficient stock')
                 return redirect('pharmacy:pos')
             
-            # Calculate unit price and total
+            # Calculate original unit price
+            original_price = medicine.get_strip_price() if unit_type == 'STRIP' else medicine.price
+            
+            # Calculate minimum profitable price (cost + 10%)
+            min_profitable_price = medicine.purchase_price * Decimal('1.10')
             if unit_type == 'STRIP':
-                unit_price = medicine.get_strip_price()
+                min_profitable_price = min_profitable_price / medicine.strips_per_box
+            
+            # Calculate discounted price if customer exists
+            if customer:
+                if customer.customer_type == 'FAMILY':
+                    # For family type, always use minimum profitable price
+                    discounted_price = min_profitable_price
+                else:
+                    # For regular customers with discount percentage
+                    discount = customer.discount_percentage / 100
+                    discounted_price = original_price * (1 - discount)
+                    
+                    # Ensure price doesn't go below minimum profitable price
+                    if discounted_price < min_profitable_price:
+                        discounted_price = min_profitable_price
             else:
-                unit_price = medicine.price
-                
-            total_price = unit_price * quantity
+                discounted_price = original_price
+            
+            # Calculate totals
+            original_total = float(original_price * quantity)
+            discounted_total = float(discounted_price * quantity)
             
             # Add to cart
             cart = request.session.get('cart', [])
@@ -1428,16 +1552,19 @@ def pos_add_to_cart(request):
                 'name': medicine.name,
                 'quantity': quantity,
                 'unit_type': unit_type,
-                'price': float(unit_price),
-                'total': float(total_price)
+                'original_price': float(original_price),
+                'discounted_price': float(discounted_price),
+                'total': discounted_total
             })
             request.session['cart'] = cart
-            request.session.modified = True  # Make sure session is saved
+            request.session.modified = True
             
             messages.success(request, f'Added {quantity} {unit_type} of {medicine.name} to cart')
             
         except Medicine.DoesNotExist:
             messages.error(request, 'Product not found')
+        except Customer.DoesNotExist:
+            messages.error(request, 'Customer not found')
         except Exception as e:
             messages.error(request, str(e))
     
