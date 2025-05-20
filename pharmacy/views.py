@@ -103,6 +103,8 @@ def stock_management(request):
 @require_POST
 @login_required
 def update_stock(request):
+    from django.db.models import Sum, F
+
     # Add debug prints
     print("Received POST request")
     print("POST data:", request.POST)
@@ -132,15 +134,9 @@ def update_stock(request):
             )
             print(f"Created stock entry: {stock_entry}")
             
-            # Update total stock
-            total_stock = StockEntry.objects.filter(
-                medicine=medicine
-            ).aggregate(total=Sum('quantity'))['total'] or 0
-            
-            medicine.stock = total_stock
-            medicine.save()
-            
-            print(f"Updated stock to: {total_stock}")
+            # Update stock based on non-expired entries
+            new_stock = medicine.update_stock()
+            print(f"Updated stock to: {new_stock}")
             
             return JsonResponse({
                 'success': True,
@@ -181,11 +177,10 @@ def stock_view(request):
         # Get all stock entries for this medicine
         stock_entries = medicine.stock_entries.all()
         
-        print(f"Debug - Medicine: {medicine.name}")  # Debug print
-        print(f"Debug - Stock entries: {stock_entries.count()}")  # Debug print
+        # Ensure stock is up to date
+        medicine.update_stock()
         
-        # Calculate totals
-        total_stock = medicine.stock
+        # Calculate expired and near-expiry stock
         expired_stock = stock_entries.filter(
             expiration_date__lt=today
         ).aggregate(
@@ -200,7 +195,7 @@ def stock_view(request):
         
         stock_data.append({
             'medicine': medicine,
-            'total_stock': total_stock,
+            'total_stock': medicine.stock,
             'expired_stock': expired_stock,
             'near_expiry_stock': near_expiry_stock,
             'stock_entries': stock_entries,
@@ -222,23 +217,29 @@ def update_existing_stock(request, barcode):
         expiration_date = request.POST.get('expiration_date')
         
         if quantity and expiration_date:
-            # Create new stock entry
-            StockEntry.objects.create(
-                medicine=medicine,
-                quantity=quantity,
-                expiration_date=expiration_date
-            )
-            
-            # Update total stock
-            total_stock = StockEntry.objects.filter(
-                medicine=medicine
-            ).aggregate(total=Sum('quantity'))['total'] or 0
-            
-            medicine.stock = total_stock
-            medicine.save()
-            
-            messages.success(request, f'Updated stock for {medicine.name}')
-            return redirect('pharmacy:stock_view')
+            try:
+                exp_date = timezone.datetime.strptime(expiration_date, '%Y-%m-%d').date()
+                
+                # Validate expiration date
+                if exp_date <= today:
+                    messages.error(request, 'Expiration date must be in the future')
+                    return redirect('pharmacy:update_existing_stock', barcode=barcode)
+                
+                # Create new stock entry
+                StockEntry.objects.create(
+                    medicine=medicine,
+                    quantity=quantity,
+                    expiration_date=exp_date
+                )
+                
+                # Update stock based on non-expired entries
+                new_stock = medicine.update_stock()
+                
+                messages.success(request, f'Updated stock for {medicine.name}. New total: {new_stock}')
+                return redirect('pharmacy:stock_view')
+                
+            except ValueError:
+                messages.error(request, 'Invalid expiration date format')
     
     context = {
         'medicine': medicine,
@@ -312,19 +313,12 @@ def update_stock(request, barcode):
                     messages.error(request, 'Invalid quantity or expiration date format')
                     return redirect('pharmacy:update_stock', barcode=barcode)
             
-            # Update total stock
-            total_stock = StockEntry.objects.filter(
-                medicine=medicine
-            ).aggregate(
-                total=Sum('quantity')
-            )['total'] or 0
-            
-            medicine.stock = total_stock
-            medicine.save()
+            # Update stock based on non-expired entries
+            new_stock = medicine.update_stock()
             
             messages.success(
                 request, 
-                f'Added {total_added} units to {medicine.name} with different expiration dates. New total: {total_stock}'
+                f'Added {total_added} units to {medicine.name} with different expiration dates. New total: {new_stock}'
             )
             return redirect('pharmacy:medicine_list')
         else:

@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from decimal import Decimal
 
 class Customer(models.Model):
     CUSTOMER_TYPE_CHOICES = [
@@ -198,6 +199,34 @@ class Medicine(models.Model):
             strip_purchase_price = self.purchase_price / self.strips_per_box if self.strips_per_box > 0 else 0
             return self.get_strip_price() - strip_purchase_price
         return 0
+
+    def calculate_available_stock(self):
+        """Calculate total available (non-expired) stock"""
+        from django.utils import timezone
+        from django.db.models import Sum
+        
+        today = timezone.now().date()
+        return self.stock_entries.filter(
+            expiration_date__gte=today
+        ).aggregate(
+            total=Sum('quantity')
+        )['total'] or 0
+    
+    def update_stock(self, commit=True):
+        """Update stock based on non-expired stock entries"""
+        available = self.calculate_available_stock()
+        if self.stock != available:
+            self.stock = available
+            if commit:
+                self.save(update_fields=['stock'])
+        return self.stock
+
+    def validate_stock(self):
+        """Validate that stock matches sum of valid stock entries"""
+        available = self.calculate_available_stock()
+        if self.stock != available:
+            return False, f"Stock mismatch: recorded={self.stock}, calculated={available}"
+        return True, "Stock valid"
 
 class StockEntry(models.Model):
     medicine = models.ForeignKey(Medicine, on_delete=models.CASCADE, related_name='stock_entries')

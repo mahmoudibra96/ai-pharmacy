@@ -72,8 +72,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const barcodeInput = document.querySelector('input[name="barcode_number"]');
         if (barcodeInput) {
             barcodeInput.value = barcode;
+            // Focus the name field after setting barcode
+            const nameInput = document.querySelector('input[name="name"]');
+            if (nameInput) {
+                nameInput.focus();
+            }
         }
     }
 });
 </script>
-{% endblock %} 
+{% endblock %}
