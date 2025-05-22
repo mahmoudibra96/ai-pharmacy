@@ -11,12 +11,13 @@ services:
       - /dev/usb:/dev/usb  # Mount USB devices
     ports:
       - "8000:8000"
+    # Windows printer access
     devices:
-      - "/dev/usb/lp0:/dev/usb/lp0"
-      - "/dev/usb/lp1:/dev/usb/lp1"
-      - "/dev/usb/lp2:/dev/usb/lp2"
-      - "/dev/usb/lp3:/dev/usb/lp3"
+      - "${PRINTER_PATH:-/dev/usb/lp0}:${PRINTER_PATH:-/dev/usb/lp0}"
     privileged: true  # Needed for printer access
+    # Additional Windows-specific settings
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - DJANGO_SETTINGS_MODULE=Elesraa.settings
       - DJANGO_SUPERUSER_USERNAME=admin

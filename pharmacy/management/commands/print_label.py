@@ -59,20 +59,105 @@ class Command(BaseCommand):
 
         return image, width_px, height_px
 
+    def get_windows_printer_path(self):
+        """Get printer path for Windows"""
+        import platform
+        if platform.system() == 'Windows':
+            # Try COM ports first (USB to Serial)
+            for i in range(1, 10):
+                port = f'COM{i}'
+                try:
+                    import serial
+                    ser = serial.Serial(port)
+                    ser.close()
+                    return port
+                except:
+                    continue
+            
+            # Try direct USB printer ports
+            alternative_paths = [
+                'USB001', 'USB002', 'LPT1', 
+                r'\\.\COM1', r'\\.\COM2', r'\\.\COM3'
+            ]
+            for path in alternative_paths:
+                try:
+                    with open(path, 'wb') as _:
+                        return path
+                except:
+                    continue
+            return 'LPT1'  # Default Windows printer port
+        return '/dev/usb/lp0'  # Default Linux printer port
+
+    def print_windows(self, printer_name, data):
+        """Print using Windows printer"""
+        try:
+            import win32print
+            import tempfile
+            
+            # Save data to temporary file
+            temp = tempfile.NamedTemporaryFile(delete=False, suffix='.prn')
+            temp.write(data)
+            temp.close()
+            
+            try:
+                # Try using default printer if no name provided
+                if not printer_name:
+                    printer_name = win32print.GetDefaultPrinter()
+                
+                # Open printer
+                handle = win32print.OpenPrinter(printer_name)
+                try:
+                    # Start print job
+                    job = win32print.StartDocPrinter(handle, 1, ("Label", None, "RAW"))
+                    try:
+                        win32print.StartPagePrinter(handle)
+                        # Write data to printer
+                        with open(temp.name, 'rb') as f:
+                            data = f.read()
+                            win32print.WritePrinter(handle, data)
+                        win32print.EndPagePrinter(handle)
+                    finally:
+                        win32print.EndDocPrinter(handle)
+                finally:
+                    win32print.ClosePrinter(handle)
+                return True
+            finally:
+                os.unlink(temp.name)  # Remove temporary file
+                
+        except ImportError:
+            # Fallback to direct port writing if win32print is not available
+            try:
+                with open(printer_name, 'wb') as p:
+                    p.write(data)
+                return True
+            except:
+                return False
+        except Exception as e:
+            self.stderr.write(self.style.ERROR(f'Windows print error: {str(e)}'))
+            return False
+
     def handle(self, *args, **options):
         try:
-            printer_path = options.get('printer') or settings.PRINTER_SETTINGS['PRINTER_PATH']
+            # Get appropriate printer path based on OS
+            import platform
+            is_windows = platform.system() == 'Windows'
             
-            # Check if printer exists and is accessible
-            if not os.path.exists(printer_path):
-                alternative_paths = ['/dev/usb/lp0', '/dev/usb/lp1', '/dev/usb/lp2', '/dev/usb/lp3']
-                for path in alternative_paths:
-                    if os.path.exists(path):
-                        printer_path = path
-                        break
-                else:
-                    self.stderr.write(self.style.ERROR(f'Printer not found at {printer_path} or any alternative paths'))
-                    return
+            # For Windows, we'll handle the port differently
+            if is_windows:
+                try:
+                    import win32print
+                    printers = win32print.EnumPrinters(2)
+                    if printers:
+                        # Try to find a thermal printer
+                        thermal_keywords = ['thermal', 'receipt', '80mm', 'pos']
+                        for printer in printers:
+                            for keyword in thermal_keywords:
+                                if keyword.lower() in printer[2].lower():
+                                    printer_path = printer[2]
+                                    break
+                except ImportError:
+                    # If win32print is not available, we'll use direct port access
+                    pass
 
             # Get medicine
             try:
@@ -122,14 +207,27 @@ CLS
             printer_path = options['printer']
             copies = options['copies']
 
-            # إرسال الأمر للطابعة
-            with open(printer_path, "wb") as printer:
-                for _ in range(copies):
-                    printer.write(header.encode('ascii'))
-                    printer.write(barcode_command.encode('ascii'))
-                    printer.write(bitmap_command.encode('ascii'))
-                    printer.write(bitmap_data)
-                    printer.write(b"\nPRINT 1\n")
+            # Print based on OS
+            if is_windows:
+                success = self.print_windows(printer_path, b''.join([
+                    header.encode('ascii'),
+                    barcode_command.encode('ascii'),
+                    bitmap_command.encode('ascii'),
+                    bitmap_data,
+                    b"\nPRINT 1\n"
+                ]))
+                if not success:
+                    self.stderr.write(self.style.ERROR('Failed to print on Windows'))
+                    return
+            else:
+                # Existing Linux printing code
+                with open(printer_path, "wb") as printer:
+                    for _ in range(copies):
+                        printer.write(header.encode('ascii'))
+                        printer.write(barcode_command.encode('ascii'))
+                        printer.write(bitmap_command.encode('ascii'))
+                        printer.write(bitmap_data)
+                        printer.write(b"\nPRINT 1\n")
 
             self.stdout.write(self.style.SUCCESS('✅ تمت الطباعة بنجاح'))
             
