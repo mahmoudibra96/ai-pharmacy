@@ -3,7 +3,7 @@ import win32con
 import tempfile
 import os
 
-def test_windows_print():
+def test_windows_print(printer_name=None):
     """Test Windows printing functionality"""
     print("Testing Windows printer access...")
     
@@ -12,9 +12,12 @@ def test_windows_print():
     for printer in win32print.EnumPrinters(win32print.PRINTER_ENUM_LOCAL):
         print(f"- {printer[2]}")
     
-    # Get default printer
-    default_printer = win32print.GetDefaultPrinter()
-    print(f"\nDefault printer: {default_printer}")
+    # Get printer to use
+    if printer_name:
+        print(f"\nUsing specified printer: {printer_name}")
+    else:
+        printer_name = win32print.GetDefaultPrinter()
+        print(f"\nUsing default printer: {printer_name}")
     
     # Create test data
     test_data = """
@@ -75,5 +78,13 @@ PRINT 1
         # Clean up temp file
         os.unlink(temp_path)
 
+def parse_args():
+    """Parse command line arguments"""
+    import argparse
+    parser = argparse.ArgumentParser(description='Test Windows printer functionality')
+    parser.add_argument('--printer', type=str, help='Printer name to test')
+    return parser.parse_args()
+
 if __name__ == "__main__":
-    test_windows_print()
+    args = parse_args()
+    test_windows_print(args.printer if args.printer else None)
