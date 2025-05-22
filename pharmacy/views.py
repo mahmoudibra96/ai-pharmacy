@@ -1,7 +1,16 @@
-from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
+from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
-from django.urls import reverse_lazy, reverse
+from django.conf import settings
+from django.urls import reverse
+import os
+import subprocess
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
+
+from django.urls import reverse_lazy
 from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View, TemplateView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import F, Sum, Count, Avg, Max, Q, Case, When, DecimalField
@@ -22,7 +31,6 @@ import csv
 from datetime import datetime, timedelta
 from django.core.exceptions import ValidationError
 import requests
-from django.conf import settings
 from decimal import Decimal
 import statistics
 
@@ -1320,128 +1328,20 @@ class PrescriptionUpdateView(LoginRequiredMixin, UpdateView):
 
 @login_required
 def product_search(request):
+    """View for searching products"""
     query = request.GET.get('query', '')
     results = []
-    suggestions = {
-        'ai_suggestions': None,
-        'suggested_stock': []
-    }
     
     if query:
-        # Search in local database
         results = Medicine.objects.filter(
             Q(name__icontains=query) |
-            Q(description__icontains=query)
-        ).distinct()
-        
-        # Record search history
-        SearchHistory.objects.create(
-            user=request.user,
-            query=query,
-            found_results=bool(results)
-        )
-        
-        # If no exact results, get AI suggestions and check stock
-        if not results:
-            try:
-                API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-large"
-                headers = {"Authorization": f"Bearer {settings.HUGGINGFACE_API_KEY}"}
-                
-                prompt = f"""
-                Question: What are some common alternative medicines or treatments for {query}?
-                Please list exactly 3 specific medicine names that are commonly used.
-                Format: Just list the medicine names, one per line.
-                """
-                
-                response = requests.post(
-                    API_URL,
-                    headers=headers,
-                    json={"inputs": prompt}
-                )
-                
-                if response.status_code == 200:
-                    # Split response into medicines, handling both newlines and commas
-                    suggested_medicines = []
-                    raw_suggestions = response.json()[0]['generated_text'].strip().split('\n')
-                    for suggestion in raw_suggestions:
-                        # Split by comma and clean up each medicine name
-                        medicines = [med.strip() for med in suggestion.split(',')]
-                        suggested_medicines.extend(medicines)
-                    
-                    # Remove empty strings and duplicates
-                    suggested_medicines = list(filter(None, suggested_medicines))
-                    suggested_medicines = list(dict.fromkeys(suggested_medicines))
-                    
-                    # Check stock for each suggested medicine
-                    stock_status = []
-                    seen_medicines = set()  # Keep track of matched medicines to avoid duplicates
-                    
-                    for med_name in suggested_medicines:
-                        med_name = med_name.strip().lower()  # Convert to lowercase for comparison
-                        
-                        # Skip if medicine name is too short or already seen
-                        if len(med_name) <= 3:
-                            continue
-                        
-                        # Search for this medicine in our inventory with more precise matching
-                        stock_med = None
-                        
-                        # Try exact match first
-                        exact_match = Medicine.objects.filter(
-                            name__iexact=med_name
-                        ).first()
-                        
-                        if exact_match:
-                            stock_med = exact_match
-                        else:
-                            # Try partial matches if no exact match found
-                            partial_matches = Medicine.objects.filter(
-                                Q(name__icontains=med_name) |
-                                Q(name__icontains=med_name.replace(' ', ''))
-                            ).exclude(id__in=[m.id for m in seen_medicines])
-                            
-                            if partial_matches:
-                                # Get the closest match by name length
-                                stock_med = min(partial_matches, 
-                                              key=lambda x: abs(len(x.name) - len(med_name)))
-                        
-                        # Only add if we found a match and haven't seen it before
-                        if stock_med and stock_med.id not in {m.id for m in seen_medicines}:
-                            seen_medicines.add(stock_med)
-                            stock_status.append({
-                                'name': med_name.title(),
-                                'in_stock': True,
-                                'medicine': stock_med,
-                                'search_term': med_name,
-                                'match_type': 'exact' if exact_match else 'partial'
-                            })
-                        else:
-                            # No match found
-                            stock_status.append({
-                                'name': med_name.title(),
-                                'in_stock': False,
-                                'medicine': None,
-                                'search_term': med_name,
-                                'match_type': 'none'
-                            })
-                    
-                    suggestions['ai_suggestions'] = {
-                        'text': '\n'.join(med.title() for med in suggested_medicines),
-                        'disclaimer': 'These suggestions are AI-generated. Always consult a healthcare professional before making any changes to your medication.'
-                    }
-                    suggestions['suggested_stock'] = stock_status
-                
-            except Exception as e:
-                suggestions['ai_suggestions'] = {
-                    'error': f"Could not get AI suggestions at this time: {str(e)}"
-                }
+            Q(barcode_number__icontains=query)
+        ).order_by('name')
     
-    context = {
+    return render(request, 'pharmacy/search/product_search.html', {
         'query': query,
-        'results': results,
-        'suggestions': suggestions,
-    }
-    return render(request, 'pharmacy/search/product_search.html', context)
+        'results': results
+    })
 
 @login_required
 def search_analytics(request):
@@ -1619,3 +1519,90 @@ class ProfitAnalyticsView(LoginRequiredMixin, RoleRequiredMixin, TemplateView):
             'end_date': end_date,
         })
         return context
+
+@login_required
+def barcode_print(request):
+    """View for printing barcodes for products"""
+    barcode = request.GET.get('barcode')
+    medicine = None
+    printed = False
+    error_message = None
+    debug_info = []
+    
+    if barcode:
+        medicine = Medicine.objects.filter(barcode_number=barcode).first()
+        
+        # Handle thermal printing
+        if request.GET.get('thermal_print') and medicine:
+            try:
+                copies = int(request.GET.get('copies', 1))
+                printer_path = request.GET.get('printer', '/dev/usb/lp0')
+                
+                # Add debug info about printer
+                debug_info.append(f"Printer path: {printer_path}")
+                debug_info.append(f"File exists: {os.path.exists(printer_path)}")
+                if os.path.exists(printer_path):
+                    debug_info.append(f"Permissions: {oct(os.stat(printer_path).st_mode)[-3:]}")
+                    debug_info.append(f"Owner: {os.stat(printer_path).st_uid}")
+                    debug_info.append(f"Group: {os.stat(printer_path).st_gid}")
+                
+                logger.info(f"Attempting to print barcode {barcode} to {printer_path}")
+                for info in debug_info:
+                    logger.debug(info)
+
+                # Try direct printing with sudo
+                import subprocess
+                import shlex
+                
+                cmd = [
+                    'sudo',
+                    '-n',  # Non-interactive
+                    'python3',
+                    'manage.py',
+                    'print_label',
+                    medicine.barcode_number,
+                    '--printer', printer_path,
+                    '--copies', str(copies),
+                    '--verbose'  # Enable verbose logging
+                ]
+                
+                logger.debug(f"Running command: {' '.join(cmd)}")
+                
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    cwd=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                )
+                
+                if result.returncode == 0:
+                    printed = True
+                    logger.info("Print job completed successfully")
+                    messages.success(request, "تمت الطباعة بنجاح")
+                else:
+                    error_message = f"Error printing: {result.stderr}"
+                    logger.error(f"Print command failed: {error_message}")
+                    logger.debug(f"Command output: {result.stdout}")
+                    raise Exception(error_message)
+                
+            except ValueError as e:
+                error_message = f"Invalid parameter: {str(e)}"
+                logger.error(error_message)
+                messages.error(request, error_message)
+            except subprocess.SubprocessError as e:
+                error_message = f"Error running print command: {str(e)}"
+                logger.error(error_message)
+                messages.error(request, error_message)
+            except Exception as e:
+                error_message = f"Error printing label: {str(e)}"
+                logger.error(error_message, exc_info=True)
+                messages.error(request, error_message)
+        
+    context = {
+        'medicine': medicine,
+        'printed': printed,
+        'error_message': error_message,
+        'debug_info': debug_info if settings.DEBUG else None
+    }
+    
+    return render(request, 'pharmacy/barcode_print.html', context)

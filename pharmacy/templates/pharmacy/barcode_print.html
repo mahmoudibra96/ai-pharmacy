@@ -1,0 +1,162 @@
+{% extends 'pharmacy/base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">طباعة الباركود</h5>
+                </div>
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-8">
+                            <label for="barcode" class="form-label">رقم الباركود</label>
+                            <input type="text" class="form-control" id="barcode" name="barcode" 
+                                   value="{{ request.GET.barcode }}" autofocus required
+                                   placeholder="ادخل رقم الباركود">
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-1"></i> بحث
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if medicine %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">تفاصيل المنتج</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table">
+                                <tr>
+                                    <th>اسم المنتج:</th>
+                                    <td>{{ medicine.name }}</td>
+                                </tr>
+                                <tr>
+                                    <th>الباركود:</th>
+                                    <td>{{ medicine.barcode_number }}</td>
+                                </tr>
+                                <tr>
+                                    <th>السعر:</th>
+                                    <td>{{ medicine.price }} ج.م</td>
+                                </tr>
+                            </table>
+
+                            <div class="mt-4">
+                                <h6>خيارات الطباعة:</h6>
+                                <form method="GET" class="row g-3">
+                                    <input type="hidden" name="barcode" value="{{ medicine.barcode_number }}">
+                                    <input type="hidden" name="thermal_print" value="1">
+                                    
+                                    <div class="col-md-6">
+                                        <label class="form-label">الطابعة</label>
+                                        <select name="printer" class="form-select">
+                                            <option value="/dev/usb/lp0">الطابعة الرئيسية</option>
+                                            <option value="/dev/usb/lp1">طابعة 1</option>
+                                            <option value="/dev/usb/lp2">طابعة 2</option>
+                                            <option value="/dev/usb/lp3">طابعة 3</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <label class="form-label">عدد النسخ</label>
+                                        <input type="number" name="copies" class="form-control" 
+                                               value="1" min="1" max="100">
+                                    </div>
+                                    
+                                    <div class="col-12">
+                                        <button type="submit" class="btn btn-success">
+                                            <i class="fas fa-print me-1"></i> طباعة الباركود
+                                        </button>
+                                        {% if printed %}
+                                            <div class="alert alert-success mt-3">
+                                                <i class="fas fa-check-circle"></i> تمت الطباعة بنجاح
+                                            </div>
+                                        {% endif %}
+                                        {% if error_message %}
+                                            <div class="alert alert-danger mt-3">
+                                                <i class="fas fa-exclamation-circle"></i> {{ error_message }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <div id="barcode-preview" class="text-center p-4 border rounded" 
+                                 style="background: white;">
+                                <h6 class="text-muted mb-3">معاينة الباركود</h6>
+                                <div class="barcode-item" style="width: 40mm; margin: 0 auto;">
+                                    <div style="font-size: 8pt; margin-bottom: 2px;">صيدلية الإسراء</div>
+                                    <div style="font-size: 10pt; margin-bottom: 5px;">{{ medicine.name }}</div>
+                                    {% if medicine.barcode_image %}
+                                        <img src="{{ medicine.barcode_image.url }}" 
+                                             style="width: 100%; max-width: 35mm;">
+                                    {% endif %}
+                                    <div style="font-size: 12pt; margin-top: 5px;">{{ medicine.price }} ج.م</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <style type="text/css" media="print">
+        @page {
+            size: 40mm 30mm;
+            margin: 0;
+        }
+        body * {
+            visibility: hidden;
+        }
+        #barcode-container, #barcode-container * {
+            visibility: visible;
+        }
+        #barcode-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+        .barcode-item {
+            page-break-after: always;
+        }
+    </style>
+
+    <script>
+        function printBarcode() {
+            const copies = document.querySelector('input[name="copies"]').value;
+            const container = document.getElementById('barcode-container');
+            const originalContent = container.innerHTML;
+            
+            // Create multiple copies
+            let newContent = '';
+            for (let i = 0; i < copies; i++) {
+                newContent += originalContent;
+            }
+            container.innerHTML = newContent;
+            
+            // Print
+            window.print();
+            
+            // Restore original content
+            setTimeout(() => {
+                container.innerHTML = originalContent;
+            }, 1000);
+        }
+    </script>
+</div>
+{% endblock content %}

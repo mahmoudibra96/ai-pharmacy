@@ -1,0 +1,29 @@
+version: '3'
+
+services:
+  web:
+    build: .
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+      - static_volume:/app/static
+      - media_volume:/app/media
+      - /dev/usb:/dev/usb  # Mount USB devices
+    ports:
+      - "8000:8000"
+    devices:
+      - "/dev/usb/lp0:/dev/usb/lp0"
+      - "/dev/usb/lp1:/dev/usb/lp1"
+      - "/dev/usb/lp2:/dev/usb/lp2"
+      - "/dev/usb/lp3:/dev/usb/lp3"
+    privileged: true  # Needed for printer access
+    environment:
+      - DJANGO_SETTINGS_MODULE=Elesraa.settings
+      - DJANGO_SUPERUSER_USERNAME=admin
+      - DJANGO_SUPERUSER_PASSWORD=admin
+      - DJANGO_SUPERUSER_EMAIL=admin@example.com
+    restart: unless-stopped
+
+volumes:
+  static_volume:
+  media_volume:

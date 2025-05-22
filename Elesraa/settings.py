@@ -25,16 +25,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-mps%p+fho#(b2gw$38y0bp!bi=%h2%)9dd(#z@(rsn*$z#_rue"
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', '0') == '1'
 
-ALLOWED_HOSTS = [
-    'mahmoudibrahem.pythonanywhere.com',  # Your PythonAnywhere domain
-    'localhost',                         # For local development
-    '127.0.0.1',                        # For local development
-]
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost 127.0.0.1 [::1]').split(' ')
 
 
 # Application definition
@@ -86,7 +82,7 @@ WSGI_APPLICATION = "Elesraa.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": str(BASE_DIR / "db.sqlite3"),
     }
 }
 
@@ -122,25 +118,24 @@ USE_I18N = True
 USE_TZ = True
 
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/4.2/howto/static-files/
+# Printer settings
+PRINTER_SETTINGS = {
+    'PRINTER_PATH': os.getenv('PRINTER_PATH', '/dev/usb/lp3'),
+    'PRINTER_DPI': int(os.getenv('PRINTER_DPI', '203')),
+    'LABEL_WIDTH': int(os.getenv('LABEL_WIDTH', '40')),
+    'LABEL_HEIGHT': int(os.getenv('LABEL_HEIGHT', '25')),
+}
 
-STATIC_URL = 'static/'
+# Static files settings
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
 
-if DEBUG:
-    STATICFILES_DIRS = [
-        BASE_DIR / "static",
-    ]
-else:
-    STATIC_ROOT = BASE_DIR / "staticfiles"
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
+# Media files settings
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'pharmacy:home'

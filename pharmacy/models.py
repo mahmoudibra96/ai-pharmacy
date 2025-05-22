@@ -165,7 +165,7 @@ class Medicine(models.Model):
                 EAN = barcode.get_barcode_class('ean13')
                 ean = EAN(self.barcode_number)
                 buffer = BytesIO()
-                ean.write(buffer, writer=ImageWriter())
+                ean.write(buffer)
                 self.barcode.save(
                     f'barcode_{self.barcode_number}.png',
                     File(buffer),
