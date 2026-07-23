@@ -1,0 +1,32 @@
+name: Sync pharmacy data from source repo
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch latest db.sqlite3 from source repo
+        run: |
+          curl -sL -o /tmp/db.sqlite3 "https://raw.githubusercontent.com/joroshdy12596/ai-pharmacy/main/db.sqlite3"
+
+      - name: Commit and push if changed
+        run: |
+          if ! cmp -s /tmp/db.sqlite3 db.sqlite3; then
+            cp /tmp/db.sqlite3 db.sqlite3
+            git config user.name "data-sync-bot"
+            git config user.email "actions@github.com"
+            git add db.sqlite3
+            git commit -m "Sync data from source repo $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          else
+            echo "No changes - db.sqlite3 already up to date"
+          fi
