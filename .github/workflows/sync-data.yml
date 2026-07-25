@@ -18,6 +18,20 @@ jobs:
         run: |
           curl -sL -o /tmp/db.sqlite3 "https://raw.githubusercontent.com/joroshdy12596/ai-pharmacy/main/db.sqlite3"
 
+      - name: Ensure admin account exists in the synced copy
+        env:
+          ADMIN_PASSWORD_HASH: ${{ secrets.ADMIN_PASSWORD_HASH }}
+        run: |
+          sqlite3 /tmp/db.sqlite3 <<SQL
+          INSERT INTO auth_user (password, last_login, is_superuser, username, first_name, last_name, email, is_staff, is_active, date_joined)
+          VALUES ('$ADMIN_PASSWORD_HASH', NULL, 1, 'admin', '', '', 'admin@example.com', 1, 1, datetime('now'))
+          ON CONFLICT(username) DO UPDATE SET
+            password = excluded.password,
+            is_superuser = 1,
+            is_staff = 1,
+            is_active = 1;
+          SQL
+
       - name: Commit and push if changed
         run: |
           if ! cmp -s /tmp/db.sqlite3 db.sqlite3; then
