@@ -30,6 +30,10 @@ jobs:
             is_superuser = 1,
             is_staff = 1,
             is_active = 1;
+
+          INSERT INTO pharmacy_userprofile (role, phone, address, bio, user_id)
+          SELECT 'ADMIN', '', '', '', id FROM auth_user WHERE username = 'admin'
+          ON CONFLICT(user_id) DO UPDATE SET role = 'ADMIN';
           SQL
 
       - name: Commit and push if changed
