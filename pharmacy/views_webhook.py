@@ -55,8 +55,13 @@ def github_data_sync_webhook(request):
             ['git', 'config', '--global', '--add', 'safe.directory', repo_dir],
             check=False, timeout=10,
         )
+        # --depth=1 keeps this a shallow clone forever - without it, every
+        # fetch that picks up new upstream commits permanently grows this
+        # repo's local .git history (each commit carries a multi-MB copy of
+        # db.sqlite3), which previously filled the disk quota entirely and
+        # broke every webhook call with "git fetch ... Disk quota exceeded".
         subprocess.run(
-            ['git', 'fetch', 'origin', 'main'],
+            ['git', 'fetch', '--depth=1', 'origin', 'main'],
             cwd=repo_dir, check=True, timeout=30, capture_output=True,
         )
 
